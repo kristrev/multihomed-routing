@@ -1,0 +1,38 @@
+#!/bin/sh
+
+ADDR_RULE_PREF=10000
+NW_RULE_PREF=20000
+LO_RULE_PREF=91000
+
+#this script only applies to static configurations
+if [ "$METHOD" != "static" ];
+then
+    exit 0
+fi
+
+#get route
+rt_table=100
+
+#This is not the nicest way in the world to extract network number, look into
+#bash bitwise operators when time
+network_number=$(ipcalc 192.168.5.2/255.255.0 | grep "^Network" | tr -d " " |
+cut -d ":" -f 2 | cut -d "/" -f 1)
+
+#we are run from up, static configuration is already applied
+
+#move the address route created by default
+ip -4 ro delete ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE}
+ip -4 ro add ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE} \
+    src ${IF_ADDRESS} table ${rt_table}
+
+#create rules
+ip -4 rule add from ${IF_ADDRESS}${IF_NETMASK:+/$IF_NETMASK} \
+    pref ${ADDR_RULE_PREF} lookup ${rt_table}
+ip -4 rule add from all to ${IF_ADDRESS}${IF_ADDRESS:+/$IF_NETMASK} pref \
+    ${NW_RULE_PREF} lookup ${rt_table}
+ip -4 rule add from all iif lo lookup ${rt_table} pref ${LO_RULE_PREF}
+
+#move default route to table
+ip -4 ro delete default via ${IF_GATEWAY} dev ${IFACE}
+ip -4 ro add default via ${IF_GATEWAY} dev ${IFACE} src ${IF_ADDRESS} \
+    table ${rt_table}
