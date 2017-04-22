@@ -108,6 +108,10 @@ handle_bound_renew_rebind_reboot()
 
     # update /etc/resolv.conf
     make_resolv_conf
+
+    #This function replaces the handling in the main script. Thus, we need to
+    #prevent the main script from handling these four states
+    unset reason
 }
 
 handle_expire_fail_release_stop()
@@ -115,15 +119,9 @@ handle_expire_fail_release_stop()
     #todo: get + release old table
     old_rt_table=100
 
-    if [ -n "$alias_ip_address" ]; then
-        # flush alias IP
-        ip -4 addr flush dev ${interface} label ${interface}:0
-    fi
-
+    #we don't need to handle routes, they are automatically removed when address
+    #is flushed
     if [ -n "$old_ip_address" ]; then
-        # flush leased IP
-        ip -4 addr flush dev ${interface} label ${interface}
-
         #remove rules
         ip rule delete from \
             ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} \
@@ -133,13 +131,6 @@ handle_expire_fail_release_stop()
             ${NW_RULE_PREF} lookup ${old_rt_table}
         ip rule delete from all iif lo lookup ${old_rt_table} pref \
             ${LO_RULE_PREF}
-    fi
-
-    if [ -n "$alias_ip_address" ]; then
-        # alias IP given => set it & add host route to it
-        ip -4 addr add ${alias_ip_address}${alias_subnet_mask:+/$alias_subnet_mask} \
-            dev ${interface} label ${interface}:0
-        ip -4 route add ${alias_ip_address} dev ${interface} >/dev/null 2>&1
     fi
 }
 
@@ -156,4 +147,3 @@ case "$reason" in
         ;;
 esac
 
-unset reason
