@@ -36,3 +36,5 @@ ip -4 rule add from all iif lo lookup ${rt_table} pref ${LO_RULE_PREF}
 ip -4 ro delete default via ${IF_GATEWAY} dev ${IFACE}
 ip -4 ro add default via ${IF_GATEWAY} dev ${IFACE} src ${IF_ADDRESS} \
     table ${rt_table}
+
+exit 0
