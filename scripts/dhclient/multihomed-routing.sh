@@ -1,5 +1,8 @@
 #!/bin/sh
 
+#Install this script by copying it to:
+#/etc/dhcp/dhclient-enter-hooks.d/multihomed-routing (note that .sh is removed)
+
 ADDR_RULE_PREF=10000
 NW_RULE_PREF=20000
 LO_RULE_PREF=91000
