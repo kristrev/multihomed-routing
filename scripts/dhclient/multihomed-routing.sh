@@ -26,9 +26,9 @@ handle_bound_renew_rebind_reboot()
             ip -4 addr flush dev ${interface} label ${interface}
 
             #Delete our routing rules for this address
-            ip rule delete from ${old_ip_address}\
-                ${old_subnet_mask:+/$old_subnet_mask} pref ${ADDR_RULE_PREF} \
-                lookup ${old_rt_table}
+            ip rule delete from \
+                ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} \
+                pref ${ADDR_RULE_PREF} lookup ${old_rt_table}
             ip rule delete from all to \
                 ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} pref \
                 ${NW_RULE_PREF} lookup ${old_rt_table}
@@ -53,7 +53,8 @@ handle_bound_renew_rebind_reboot()
             dev ${interface} src ${new_ip_address} table ${rt_table}
 
         #set up new routing rules
-        ip rule add from ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} \
+        ip rule add from \
+            ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} \
             pref ${ADDR_RULE_PREF} lookup ${rt_table}
         ip rule add from all to \
             ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} pref \
@@ -109,6 +110,39 @@ handle_bound_renew_rebind_reboot()
     make_resolv_conf
 }
 
+handle_expire_fail_release_stop()
+{
+    #todo: get + release old table
+    old_rt_table=100
+
+    if [ -n "$alias_ip_address" ]; then
+        # flush alias IP
+        ip -4 addr flush dev ${interface} label ${interface}:0
+    fi
+
+    if [ -n "$old_ip_address" ]; then
+        # flush leased IP
+        ip -4 addr flush dev ${interface} label ${interface}
+
+        #remove rules
+        ip rule delete from \
+            ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} \
+            pref ${ADDR_RULE_PREF} lookup ${old_rt_table}
+        ip rule delete from all to \
+            ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} pref \
+            ${NW_RULE_PREF} lookup ${old_rt_table}
+        ip rule delete from all iif lo lookup ${old_rt_table} pref \
+            ${LO_RULE_PREF}
+    fi
+
+    if [ -n "$alias_ip_address" ]; then
+        # alias IP given => set it & add host route to it
+        ip -4 addr add ${alias_ip_address}${alias_subnet_mask:+/$alias_subnet_mask} \
+            dev ${interface} label ${interface}:0
+        ip -4 route add ${alias_ip_address} dev ${interface} >/dev/null 2>&1
+    fi
+}
+
 case "$reason" in
     MEDIUM|ARPCHECK|ARPSEND|PREINIT|PREINIT6|BOUND6|RENEW6|REBIND6|DEPREF6|\
         EXPIRE6|RELEASE6|STOP6)
@@ -116,6 +150,9 @@ case "$reason" in
         ;;
     BOUND|RENEW|REBIND|REBOOT)
         handle_bound_renew_rebind_reboot
+        ;;
+    EXPIRE|FAIL|RELEASE|STOP)
+        handle_expire_fail_release_stop
         ;;
 esac
 
