@@ -7,7 +7,6 @@
 
 #include "table_allocator_server.h"
 
-//will be made shared (static library?)
 #include "table_allocator_log.h"
 #include "table_allocator_socket_helpers.h"
 
