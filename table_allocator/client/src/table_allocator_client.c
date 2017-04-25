@@ -98,6 +98,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     //expects something that is either sockaddr_in or sockaddr_in6 (investigate)
     retval = sendto(sock_fd, json_str, strlen(json_str), 0,
             (const struct sockaddr*) &remote_addr, sizeof(struct sockaddr_un));
+    json_object_put(req_obj);
 
     if (retval < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Sending error: %s\n", uv_strerror(retval));
