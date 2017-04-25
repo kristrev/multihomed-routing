@@ -61,7 +61,6 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     uint8_t snd_buf[1] = {'a'};
 	struct sockaddr_un remote_addr;
     //this is just a test until we have config files in place
-    const char *path_name = "test-test-test";
     int32_t retval = -1, sock_fd;
 
     memset(&remote_addr, 0, sizeof(remote_addr));
@@ -69,7 +68,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     remote_addr.sun_family = AF_UNIX;
 
     //we use abstract naming, so first byte of path is always \0
-    strncpy(remote_addr.sun_path + 1, path_name, strlen(path_name));
+    strncpy(remote_addr.sun_path + 1, ctx->destination, strlen(ctx->destination));
 	uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd);
 
     //todo: I need to use sendto, it seems the diffrent send-methods in libuv
@@ -101,11 +100,18 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
     int32_t sock_fd = -1;
     uint8_t success = 1;
     struct tac_ctx *ctx = handle->data;
+    //format is ifname-addr-family. The space for the two "-" comes for free via
+    //the additional byte in IFNAMSIZE and INET6_ADDRSTRLEN, family is either 0, 4
+    //or 6 and then we need the terminating byte
+    char unix_socket_addr[IFNAMSIZ + INET6_ADDRSTRLEN + 2];
 
     if (uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd)
             == UV_EBADF) {
+        snprintf(unix_socket_addr, sizeof(unix_socket_addr),
+                "%s-%s-%u", ctx->ifname, ctx->address, ctx->addr_family);
+
         //path will be read from config, stored in ctx
-        sock_fd = ta_socket_helpers_create_unix_socket(NULL);
+        sock_fd = ta_socket_helpers_create_unix_socket(unix_socket_addr);
 
         if (sock_fd < 0 || uv_udp_open(&(ctx->unix_socket_handle), sock_fd)) {
             //print error
@@ -252,9 +258,9 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             memcpy(ctx->destination, destination, strlen(destination));
         }
     } else {
-        if (strlen(address) >= MAX_ADDR_SIZE) {
+        if (strlen(address) >= INET6_ADDRSTRLEN) {
             fprintf(stderr, "Address too long (%zd > %u\n", strlen(address),
-                    MAX_ADDR_SIZE);
+                    INET6_ADDRSTRLEN);
             return 0;
         } else {
             memcpy(ctx->destination, destination, strlen(destination));
@@ -302,12 +308,6 @@ int main(int argc, char *argv[])
         free_ctx(ctx);
         exit(EXIT_FAILURE);
     }
-
-    //parse config
-    /*if (!parse_config(ctx, NULL)) {
-        TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Option parsing failed\n");    
-        exit(EXIT_FAILURE);
-    }*/
 
     if (!ta_allocator_libuv_helpers_configure_unix_handle(&(ctx->event_loop),
                 &(ctx->unix_socket_handle), &(ctx->unix_socket_timeout_handle),

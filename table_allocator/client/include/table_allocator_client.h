@@ -7,7 +7,9 @@
 #define REQUEST_RETRANSMISSION_MS   2000
 
 #define MAX_TAG_SIZE                128
-#define MAX_ADDR_SIZE               64
+//max. len. for unix domain sockets is 108, but string needs to be zero
+//teminated and we loose one byte (in front) since we use abstract naming
+#define MAX_ADDR_SIZE               106
 
 struct tac_ctx {
     uv_loop_t event_loop; 
@@ -17,7 +19,7 @@ struct tac_ctx {
     FILE *logfile;
     char ifname[IFNAMSIZ];
     char tag[MAX_TAG_SIZE];
-    char address[MAX_ADDR_SIZE];
+    char address[INET6_ADDRSTRLEN];
     char destination[MAX_ADDR_SIZE];
     uint8_t use_syslog;
     uint8_t addr_family;
