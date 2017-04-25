@@ -11,6 +11,7 @@ set (PROJECT_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 
 set(SOURCE
 	${PROJECT_SRC_DIR}/table_allocator_socket_helpers.c
+	${PROJECT_SRC_DIR}/table_allocator_libuv_helpers.c
 ) 
 
 include_directories("${PROJECT_INCLUDE_DIR}")

@@ -9,6 +9,7 @@
 
 #include "table_allocator_log.h"
 #include "table_allocator_socket_helpers.h"
+#include "table_allocator_libuv_helpers.h"
 
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
             uv_buf_t* buf)
@@ -72,38 +73,6 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
     }
 }
 
-
-//configure the domain handle, but do not create the socket until loop is
-//started (makes it easier to handle socket errors using the same function)
-static uint8_t configure_domain_handle(struct tas_ctx *ctx)
-{
-    if (uv_udp_init(&(ctx->event_loop), &(ctx->unix_socket_handle))) {
-        TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to initialize socket handle\n");
-        return 0;
-    }
-
-    if (uv_timer_init(&(ctx->event_loop),
-					  &(ctx->unix_socket_timeout_handle))) {
-		TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to initialize timer handle\n");
-		return 0;
-	}
-
-	ctx->unix_socket_handle.data = ctx;
-	ctx->unix_socket_timeout_handle.data = ctx;
-
-	//We will by default not do a repeating timer. A repeating timer is only for
-	//when we fail to create a socket
-	if (uv_timer_start(&(ctx->unix_socket_timeout_handle),
-					  unix_socket_timeout_cb,
-					  0,
-					  0)) {
-		TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to start timer handle\n");
-		return 0;
-	}
-
-    return 1;
-}
-
 static uint8_t parse_config(struct tas_ctx *ctx, const char *conf_path)
 {
     return 1;
@@ -140,7 +109,9 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
   
-    if (!configure_domain_handle(ctx)) {
+    if (!ta_allocator_libuv_helpers_configure_unix_handle(&(ctx->event_loop),
+                &(ctx->unix_socket_handle), &(ctx->unix_socket_timeout_handle),
+                unix_socket_timeout_cb, ctx)) {
        TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to configure domain handle\n");
         exit(EXIT_FAILURE);
     }
