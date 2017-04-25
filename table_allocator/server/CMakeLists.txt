@@ -13,12 +13,12 @@ find_library(LIBSQLITE3_LIBRARY sqlite3)
 
 set(SOURCE
     ${PROJECT_SRC_DIR}/table_allocator_server.c
-    ${PROJECT_SRC_DIR}/table_allocator_socket_helpers.c
 ) 
 
 include_directories("${PROJECT_INCLUDE_DIR}")
-add_executable(table_allocator_server ${SOURCE})
-target_link_libraries(table_allocator_server ${LIBMNL_LIBRARY})
-target_link_libraries(table_allocator_server ${LIBUV_LIBRARY})
-target_link_libraries(table_allocator_server ${LIBSQLITE3_LIBRARY})
-install(TARGETS table_allocator_server RUNTIME DESTINATION sbin)
+add_executable(${PROJECT_NAME} ${SOURCE})
+target_link_libraries(${PROJECT_NAME} ${LIBMNL_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${LIBUV_LIBRARY})
+target_link_libraries(${PROJECT_NAME} ${LIBSQLITE3_LIBRARY})
+target_link_libraries(${PROJECT_NAME} table_allocator_shared)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION sbin)
