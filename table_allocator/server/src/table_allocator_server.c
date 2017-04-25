@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/un.h>
 
 #include "table_allocator_server.h"
 
@@ -24,11 +26,25 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     struct tas_ctx *ctx = handle->data;
+    int32_t retval, sock_fd;
 
     if (nread == 0)
         return;
 
+    uv_fileno((const uv_handle_t*) handle, &sock_fd);
+
     TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Received %zd bytes\n", nread);
+
+    //addr is always null, client needs to bind and pass the address in the JSON
+    retval = sendto(sock_fd, buf->base, nread, 0, (const struct sockaddr*) addr,
+            sizeof(struct sockaddr_un));
+
+    if (retval < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Sending error: %s\n", strerror(errno));
+    } else {
+        TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
+
+    }
 }
 
 static void unix_socket_timeout_cb(uv_timer_t *handle)
