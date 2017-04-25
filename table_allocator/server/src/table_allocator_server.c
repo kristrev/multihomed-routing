@@ -14,13 +14,21 @@
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
             uv_buf_t* buf)
 {
+    struct tas_ctx *ctx = handle->data;
 
+    buf->base = (char*) ctx->client_req_buffer;
+    buf->len = sizeof(ctx->client_req_buffer);
 }
 
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
+    struct tas_ctx *ctx = handle->data;
 
+    if (nread == 0)
+        return;
+
+    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Received %zd bytes\n", nread);
 }
 
 static void unix_socket_timeout_cb(uv_timer_t *handle)
