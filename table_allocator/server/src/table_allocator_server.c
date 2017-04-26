@@ -13,6 +13,9 @@
 #include "table_allocator_socket_helpers.h"
 #include "table_allocator_libuv_helpers.h"
 
+//todo: put all of these in a separate socket file
+static void unix_socket_timeout_cb(uv_timer_t *handle);
+
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
             uv_buf_t* buf)
 {
@@ -22,15 +25,45 @@ static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
     buf->len = sizeof(ctx->client_req_buffer);
 }
 
+static void unix_socket_handle_close_cb(uv_handle_t *handle)
+{
+    struct tas_ctx *ctx = handle->data;
+
+    uv_udp_init(&(ctx->event_loop), &(ctx->unix_socket_handle));
+    uv_timer_start(&(ctx->unix_socket_timeout_handle), unix_socket_timeout_cb,
+            0, 0);
+}
+
+static void unix_socket_stop_recv(struct tas_ctx *ctx)
+{
+    uv_udp_recv_stop(&(ctx->unix_socket_handle));
+
+    //in case we get called multiple times, for example from event cache
+	if (!uv_is_closing((uv_handle_t*) & (ctx->unix_socket_handle)))
+		uv_close((uv_handle_t*) &(ctx->unix_socket_handle),
+                unix_socket_handle_close_cb);
+}
+
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     struct tas_ctx *ctx = handle->data;
     int32_t retval, sock_fd;
 
-    if (nread == 0)
+    if (nread == 0) {
         return;
+    } //else if (nread < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Server socket failed, error: %s\n",
+                uv_strerror(nread));
+        unix_socket_stop_recv(ctx);
+        return;
+    //}
 
+    //handle failure on socket. Probably not needed for domain sockets, but add
+    //it in case we at some point want to for example add support for sending
+    //messages through the network
+
+#if 0
     uv_fileno((const uv_handle_t*) handle, &sock_fd);
 
     TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Received %zd bytes\n", nread);
@@ -45,6 +78,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 
     }
+#endif
 }
 
 static void unix_socket_timeout_cb(uv_timer_t *handle)
