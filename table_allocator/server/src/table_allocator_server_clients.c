@@ -67,7 +67,7 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
 
     TA_PRINT(ctx->logfile, "Allocated table %u\n", rt_table_returned);
 
-    //*rt_table = rt_table_returned;
+    *rt_table = rt_table_returned;
     return 1;
 }
 

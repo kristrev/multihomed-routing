@@ -75,7 +75,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //check command and release/request table
     if (req->cmd == TA_SHARED_CMD_REQ) {
-        retval =table_allocator_server_clients_handle_req(ctx, req, table);
+        retval =table_allocator_server_clients_handle_req(ctx, req, &table);
 
     } else if (req->cmd == TA_SHARED_CMD_REL) {
     
