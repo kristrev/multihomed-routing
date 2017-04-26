@@ -12,8 +12,8 @@
 
 //todo: move to new header file table_allocator_shared.h
 //request or release are the only two commands we support now
-#define TA_SHARE_CMD_REQ            0
-#define TA_SHARE_CMD_REL            1
+#define TA_SHARED_CMD_REQ            0
+#define TA_SHARED_CMD_REL            1
 
 //todo: should perhaps move this somewhere else?
 #define TA_VERSION                  1

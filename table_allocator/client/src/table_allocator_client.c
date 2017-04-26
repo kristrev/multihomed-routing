@@ -70,7 +70,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     const char *json_str;
     
     req_obj = table_allocator_shared_json_create_req(ctx->address, ctx->ifname,
-            ctx->tag, ctx->addr_family, TA_SHARE_CMD_REQ);
+            ctx->tag, ctx->addr_family, TA_SHARED_CMD_REQ);
 
     if (!req_obj) {
         if (uv_timer_start(&(ctx->request_timeout_handle),

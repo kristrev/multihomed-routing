@@ -42,8 +42,11 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     struct tas_ctx *ctx = handle->data;
     struct tas_client_req *req = ctx->req;
     int32_t retval, sock_fd;
+    uint32_t table;
     const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
 
+    //ignore data done or partial reads, or buffer is big enough to store all
+    //messages we send
     if (nread == 0 || flags & UV_UDP_PARTIAL) {
         return;
     } else if (nread < 0) {
@@ -68,9 +71,20 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         return;
     }
 
-    TA_PRINT(ctx->logfile, "Parsed request from %s\n", un_addr->sun_path + 1); 
-    //check command and handle
+    TA_PRINT(ctx->logfile, "Parsed request from %s\n", un_addr->sun_path + 1);
 
+    //check command and release/request table
+    if (req->cmd == TA_SHARED_CMD_REQ) {
+        retval =table_allocator_server_clients_handle_req(ctx, req, table);
+
+    } else if (req->cmd == TA_SHARED_CMD_REL) {
+    
+    } else {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Received unknown command %u from %s\n",
+                req->cmd, un_addr->sun_path);
+        return;
+    }
+#if 0
     //send reply
 
     uv_fileno((const uv_handle_t*) handle, &sock_fd);
@@ -85,6 +99,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 
     }
+#endif
 }
 
 void unix_socket_timeout_cb(uv_timer_t *handle)

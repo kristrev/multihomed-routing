@@ -14,6 +14,7 @@ find_library(LIBJSON_LIBRARY json-c)
 set(SOURCE
     ${PROJECT_SRC_DIR}/table_allocator_server.c
     ${PROJECT_SRC_DIR}/table_allocator_server_sockets.c
+    ${PROJECT_SRC_DIR}/table_allocator_server_clients.c
 ) 
 
 include_directories("${PROJECT_INCLUDE_DIR}")
