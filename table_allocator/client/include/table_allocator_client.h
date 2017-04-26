@@ -4,6 +4,8 @@
 #include <uv.h>
 #include <linux/if.h>
 
+#include <table_allocator_shared_json.h>
+
 #define REQUEST_RETRANSMISSION_MS   2000
 
 #define MAX_TAG_SIZE                128
@@ -21,6 +23,7 @@ struct tac_ctx {
     char tag[MAX_TAG_SIZE];
     char address[INET6_ADDRSTRLEN];
     char destination[MAX_ADDR_SIZE];
+    uint8_t rcv_buf[TA_SHARE_MAX_JSON_LEN];
     uint8_t use_syslog;
     uint8_t addr_family;
 };

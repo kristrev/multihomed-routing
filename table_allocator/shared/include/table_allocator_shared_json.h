@@ -8,13 +8,17 @@
 #define TA_SHARED_JSON_IFNAME_KEY   "ifname"
 #define TA_SHARED_JSON_TAG_KEY      "tag"
 #define TA_SHARED_JSON_CMD_KEY      "cmd"
+#define TA_SHARED_JSON_VERSION_KEY  "version"
 
 //request or release
 #define TA_SHARE_CMD_REQ            0
 #define TA_SHARE_CMD_REL            1
 
-//maximum size of json object we currently can export
-#define TA_SHARE_MAX_JSON_LEN       242
+//todo: should perhaps move this somewhere else?
+#define TA_VERSION                  1
+
+//maximum size of json object we currently can export (+ \0)
+#define TA_SHARE_MAX_JSON_LEN       254
 
 struct json_object *table_allocator_shared_json_create_req(const char *address,
         const char *ifname, const char *tag, uint8_t addr_family, uint8_t cmd);

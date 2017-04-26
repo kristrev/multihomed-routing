@@ -32,7 +32,10 @@ static void unix_socket_handle_close_cb(uv_handle_t *handle)
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
             uv_buf_t* buf)
 {
+    struct tac_ctx *ctx = handle->data;
 
+    buf->base = (char*) ctx->rcv_buf;
+    buf->len = TA_SHARE_MAX_JSON_LEN;
 }
 
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
@@ -84,9 +87,10 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
 
     json_str = json_object_to_json_string_ext(req_obj, JSON_C_TO_STRING_PLAIN);
 
-    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "JSON string: %s %zd\n",
+    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "JSON request: %s %zd\n",
             json_str, strlen(json_str));
 
+    //populate address
     memset(&remote_addr, 0, sizeof(remote_addr));
     remote_addr.sun_family = AF_UNIX;
 
@@ -110,7 +114,8 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
                 unix_socket_recv_cb);
     }
 
-    //start retransmission timer
+    //always start retransmission timer, independent of success of failure
+    //timer will be updated in the different handler functions
     if (uv_timer_start(&(ctx->request_timeout_handle),
                 client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0)) {
         TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Can't start request timer\n");
@@ -170,7 +175,6 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
 
 static void free_ctx(struct tac_ctx *ctx)
 {
-
 	uv_loop_close(&(ctx->event_loop));
 	free(ctx);
 }

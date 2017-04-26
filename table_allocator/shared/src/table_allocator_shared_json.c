@@ -41,6 +41,12 @@ struct json_object *table_allocator_shared_json_create_req(const char *address,
     }
     json_object_object_add(json_obj, TA_SHARED_JSON_CMD_KEY, obj_add);
 
+    if (!(obj_add = json_object_new_int(TA_VERSION))) {
+        json_object_put(json_obj);
+        return NULL;
+    }
+    json_object_object_add(json_obj, TA_SHARED_JSON_VERSION_KEY, obj_add);
+
     return json_obj;
 }
 
