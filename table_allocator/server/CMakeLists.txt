@@ -12,6 +12,7 @@ find_library(LIBSQLITE3_LIBRARY sqlite3)
 
 set(SOURCE
     ${PROJECT_SRC_DIR}/table_allocator_server.c
+    ${PROJECT_SRC_DIR}/table_allocator_server_sockets.c
 ) 
 
 include_directories("${PROJECT_INCLUDE_DIR}")
