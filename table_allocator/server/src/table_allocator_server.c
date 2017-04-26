@@ -16,6 +16,7 @@ static uint8_t parse_config(struct tas_ctx *ctx, const char *conf_path)
 int main(int argc, char *argv[])
 {
     struct tas_ctx *ctx;
+    uint32_t i;
 
     //create the application context
     ctx = calloc(sizeof(struct tas_ctx), 1);
@@ -33,6 +34,13 @@ int main(int argc, char *argv[])
     if (!ctx->req) {
         TA_PRINT(stderr, "Failed to allocate client request\n");
         exit(EXIT_FAILURE);
+    }
+
+    //set all tables as free
+    for (i = 0; i < NUM_TABLE_ELEMENTS; i++) {
+        ctx->tables_inet[i] = UINT32_MAX;
+        ctx->tables_inet6[i] = UINT32_MAX;
+        ctx->tables_unspec[i] = UINT32_MAX;
     }
 
     //parse options, only syslog and config file to be provided
