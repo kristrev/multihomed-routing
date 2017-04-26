@@ -21,10 +21,20 @@ int main(int argc, char *argv[])
     ctx = calloc(sizeof(struct tas_ctx), 1);
 
     if (!ctx) {
-        TA_PRINT(stderr, "Failed to create context\n");
+        TA_PRINT(stderr, "Failed to allocate context\n");
         exit(EXIT_FAILURE);
     }
- 
+
+    //this application will (so far) only handle one request at a time, so
+    //allocate memory already here
+    //todo: if we ever want to scale ...
+    ctx->req = calloc(sizeof(struct tas_client_req), 1);
+
+    if (!ctx->req) {
+        TA_PRINT(stderr, "Failed to allocate client request\n");
+        exit(EXIT_FAILURE);
+    }
+
     //parse options, only syslog and config file to be provided
     ctx->use_syslog = 1;
 

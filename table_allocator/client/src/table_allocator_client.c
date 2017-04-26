@@ -35,7 +35,7 @@ static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
     struct tac_ctx *ctx = handle->data;
 
     buf->base = (char*) ctx->rcv_buf;
-    buf->len = TA_SHARE_MAX_JSON_LEN;
+    buf->len = TA_SHARED_MAX_JSON_LEN;
 }
 
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
@@ -127,23 +127,17 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
 static void unix_socket_timeout_cb(uv_timer_t *handle)
 {
     int32_t sock_fd = -1;
-    uint8_t success = 1, addr_family_translated = AF_UNSPEC;
+    uint8_t success = 1;
     struct tac_ctx *ctx = handle->data;
     //format is ifname-addr-family. The space for the two "-" comes for free via
-    //the additional byte in IFNAMSIZE and INET6_ADDRSTRLEN, family is either 0, 4
-    //or 6 and then we need the terminating byte
-    char unix_socket_addr[IFNAMSIZ + INET6_ADDRSTRLEN + 2];
+    //the additional byte in IFNAMSIZE and INET6_ADDRSTRLEN, family is maximum
+    //two digits (IPv6 is 10)
+    char unix_socket_addr[IFNAMSIZ + INET6_ADDRSTRLEN + 3];
 
     if (uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd)
             == UV_EBADF) {
-        if (ctx->addr_family == AF_INET) {
-            addr_family_translated = 4;
-        } else if (ctx->addr_family == AF_INET6) {
-            addr_family_translated = 6;
-        }
-
         snprintf(unix_socket_addr, sizeof(unix_socket_addr),
-                "%s-%s-%u", ctx->ifname, ctx->address, addr_family_translated);
+                "%s-%s-%u", ctx->ifname, ctx->address, ctx->addr_family);
 
         //path will be read from config, stored in ctx
         sock_fd = ta_socket_helpers_create_unix_socket(unix_socket_addr);
@@ -253,12 +247,14 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         return 0;
     }
 
-    if (strlen(tag) >= MAX_TAG_SIZE) {
-        fprintf(stderr, "Tag name too long (%zd > %u)\n", strlen(tag),
-                MAX_TAG_SIZE - 1);
-        return 0;
-    } else {
-        memcpy(ctx->tag, tag, strlen(tag));
+    if (tag) {
+        if (strlen(tag) >= TA_SHARED_MAX_TAG_SIZE) {
+            fprintf(stderr, "Tag name too long (%zd > %u)\n", strlen(tag),
+                    TA_SHARED_MAX_TAG_SIZE - 1);
+            return 0;
+        } else {
+            memcpy(ctx->tag, tag, strlen(tag));
+        }
     }
 
     if (strlen(ifname) >= IFNAMSIZ) {
@@ -269,9 +265,9 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         memcpy(ctx->ifname, ifname, strlen(ifname));
     }
 
-    if (strlen(destination) >= MAX_ADDR_SIZE) {
+    if (strlen(destination) >= TA_SHARED_MAX_ADDR_SIZE) {
         fprintf(stderr, "Destination too long (%zd > %u)\n", strlen(destination),
-                MAX_ADDR_SIZE - 1);
+                TA_SHARED_MAX_ADDR_SIZE - 1);
         return 0;
     } else {
         memcpy(ctx->destination, destination, strlen(destination));

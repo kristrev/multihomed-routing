@@ -1,5 +1,6 @@
 #include <string.h>
 #include <unistd.h>
+#include <sys/un.h>
 
 #include "table_allocator_server_sockets.h"
 #include "table_allocator_server.h"
@@ -39,25 +40,40 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     struct tas_ctx *ctx = handle->data;
+    struct tas_client_req *req = ctx->req;
     int32_t retval, sock_fd;
+    const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
 
-    if (nread == 0) {
+    if (nread == 0 || flags & UV_UDP_PARTIAL) {
         return;
     } else if (nread < 0) {
+        //failure handling is not really needed for domain sockets, once created
+        //they can't really fail. But it add so that it is in place in case we
+        //ever switch/add support for a different socket type (and it never
+        //hurts)
         TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Server socket failed, error: %s\n",
                 uv_strerror(nread));
         unix_socket_stop_recv(ctx);
         return;
     }
 
-    //handle failure on socket. Probably not needed for domain sockets, but add
-    //it in case we at some point want to for example add support for sending
-    //messages through the network
+    memset(ctx->req, 0, sizeof(struct tas_client_req));
 
-#if 0
+    //parse json
+    if (!table_allocator_shared_json_parse_seq(buf->base, &(req->addr_family),
+                &(req->cmd), &(req->ver), req->address, req->ifname,
+                req->tag)) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to parse request from: %s\n",
+                un_addr->sun_path + 1);
+        return;
+    }
+
+    TA_PRINT(ctx->logfile, "Parsed request from %s\n", un_addr->sun_path + 1); 
+    //check command and handle
+
+    //send reply
+
     uv_fileno((const uv_handle_t*) handle, &sock_fd);
-
-    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Received %zd bytes\n", nread);
 
     //addr is always null, client needs to bind and pass the address in the JSON
     retval = sendto(sock_fd, buf->base, nread, 0, (const struct sockaddr*) addr,
@@ -69,7 +85,6 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 
     }
-#endif
 }
 
 void unix_socket_timeout_cb(uv_timer_t *handle)
