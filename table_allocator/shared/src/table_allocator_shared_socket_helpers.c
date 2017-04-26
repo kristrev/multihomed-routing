@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 
-#include "table_allocator_socket_helpers.h"
+#include "table_allocator_shared_socket_helpers.h"
 
 int ta_socket_helpers_create_unix_socket(const char *path_name)
 {

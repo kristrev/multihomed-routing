@@ -1,4 +1,4 @@
-#include "table_allocator_libuv_helpers.h"
+#include "table_allocator_shared_libuv_helpers.h"
 
 uint8_t ta_allocator_libuv_helpers_configure_unix_handle(uv_loop_t *event_loop,
         uv_udp_t *unix_socket_handle, uv_timer_t *unix_socket_timeout_handle,

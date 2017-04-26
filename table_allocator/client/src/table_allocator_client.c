@@ -11,10 +11,10 @@
 
 #include "table_allocator_client.h"
 
-#include "table_allocator_shared_json.h"
-#include "table_allocator_log.h"
-#include "table_allocator_libuv_helpers.h"
-#include "table_allocator_socket_helpers.h"
+#include <table_allocator_shared_json.h>
+#include <table_allocator_shared_log.h>
+#include <table_allocator_shared_libuv_helpers.h>
+#include <table_allocator_shared_socket_helpers.h>
 
 static void table_allocator_client_send_request(struct tac_ctx *ctx);
 static void unix_socket_timeout_cb(uv_timer_t *handle);

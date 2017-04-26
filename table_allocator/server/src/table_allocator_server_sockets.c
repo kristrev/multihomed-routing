@@ -5,8 +5,8 @@
 #include "table_allocator_server_sockets.h"
 #include "table_allocator_server.h"
 
-#include "table_allocator_log.h"
-#include "table_allocator_socket_helpers.h"
+#include <table_allocator_shared_log.h>
+#include <table_allocator_shared_socket_helpers.h>
 
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
             uv_buf_t* buf)
@@ -75,7 +75,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //check command and release/request table
     if (req->cmd == TA_SHARED_CMD_REQ) {
-        retval =table_allocator_server_clients_handle_req(ctx, req, &table);
+        retval = table_allocator_server_clients_handle_req(ctx, req, &table);
 
     } else if (req->cmd == TA_SHARED_CMD_REL) {
     

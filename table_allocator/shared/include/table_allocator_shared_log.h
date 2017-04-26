@@ -1,5 +1,5 @@
-#ifndef TABLE_ALLOCATOR_LOG_H
-#define TABLE_ALLOCATOR_LOG_H
+#ifndef TABLE_ALLOCATOR_SHARED_LOG_H
+#define TABLE_ALLOCATOR_SHARED_LOG_H
 #include <stdio.h>
 #include <time.h>
 #include <syslog.h>

@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <strings.h>
 
-#include <table_allocator_log.h>
+#include <table_allocator_shared_log.h>
 
 #include "table_allocator_server_clients.h"
 #include "table_allocator_server.h"

@@ -8,8 +8,8 @@ set (PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 set (PROJECT_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 
 set(SOURCE
-	${PROJECT_SRC_DIR}/table_allocator_socket_helpers.c
-	${PROJECT_SRC_DIR}/table_allocator_libuv_helpers.c
+	${PROJECT_SRC_DIR}/table_allocator_shared_socket_helpers.c
+	${PROJECT_SRC_DIR}/table_allocator_shared_libuv_helpers.c
 	${PROJECT_SRC_DIR}/table_allocator_shared_json.c
 ) 
 

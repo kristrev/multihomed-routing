@@ -5,8 +5,8 @@
 #include "table_allocator_server.h"
 #include "table_allocator_server_sockets.h"
 
-#include "table_allocator_log.h"
-#include "table_allocator_libuv_helpers.h"
+#include <table_allocator_shared_log.h>
+#include <table_allocator_shared_libuv_helpers.h>
 
 static uint8_t parse_config(struct tas_ctx *ctx, const char *conf_path)
 {

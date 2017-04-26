@@ -4,7 +4,7 @@
 #include <uv.h>
 #include <linux/if.h>
 
-#include "table_allocator_shared_json.h"
+#include <table_allocator_shared_json.h>
 
 //Maximum number of tables we can allocated
 //todo: make configurable?
