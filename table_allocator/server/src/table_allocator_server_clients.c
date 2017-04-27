@@ -19,7 +19,7 @@ static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
         rt_tables = ctx->tables_unspec;
     }
 
-    for (int i = 0; i < MAX_NUM_TABLES; i++) {
+    for (int i = 0; i < ctx->num_table_elements; i++) {
         //Zero means all indexes represented by this element is taken
         if(!rt_tables[i])
             continue;
@@ -33,13 +33,14 @@ static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
 
     //Prevent reurning file descriptors larger than the limit. Larger than
     //because lowest bit has index 1, not 0 (so we have 1-MAX and not 0-MAX -1)
-    if (rt_table > MAX_NUM_TABLES)
+    if (rt_table > ctx->num_table_elements)
         return 0;
     else
         return rt_table;
 }
 
-static uint8_t release_table(struct tas_ctx *ctx)
+static uint8_t release_table(struct tas_ctx *ctx, uint8_t addr_family,
+        uint32_t rt_table)
 {
 #if 0
     uint32_t element_index = (ip4table - 1) >> 5;
