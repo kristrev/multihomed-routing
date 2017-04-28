@@ -1,0 +1,14 @@
+{
+	"socket_path": "tas_socket",
+	"table_offset": 10000,
+	"num_tables": 512,
+	"table_timeout": 3600,
+	"db_path": "/tmp/tas.db",
+	"do_syslog": true,
+	"log_path": "/tmp/tas.log",
+	"addr_families": {
+		"inet": true,
+		"inet6": false,
+		"unspec": false
+	}
+}

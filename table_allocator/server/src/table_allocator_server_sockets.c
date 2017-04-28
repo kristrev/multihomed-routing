@@ -4,6 +4,7 @@
 
 #include "table_allocator_server_sockets.h"
 #include "table_allocator_server.h"
+#include "table_allocator_server_clients.h"
 
 #include <table_allocator_shared_log.h>
 #include <table_allocator_shared_socket_helpers.h>
@@ -111,7 +112,8 @@ void unix_socket_timeout_cb(uv_timer_t *handle)
     if (uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd)
             == UV_EBADF) {
         //path will be read from config, stored in ctx
-        sock_fd = ta_socket_helpers_create_unix_socket("test-test-test");
+        sock_fd = ta_socket_helpers_create_unix_socket((const char *)
+                ctx->socket_path);
 
         if (sock_fd < 0 || uv_udp_open(&(ctx->unix_socket_handle), sock_fd)) {
             //print error

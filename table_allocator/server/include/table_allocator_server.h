@@ -6,7 +6,25 @@
 
 #include <table_allocator_shared_json.h>
 
-#define CLIENT_REQ_BUFFER_SIZE 512
+#define TAS_SOCKET_PATH_KEY     "socket_path"
+#define TAS_TABLE_OFFSET_KEY    "table_offset"
+#define TAS_NUM_TABLES_KEY  "num_tables"
+#define TAS_TABLE_TIMEOUT_KEY   "table_timeout"
+#define TAS_DB_PATH_KEY         "db_path"
+#define TAS_DO_SYSLOG_KEY       "do_syslog"
+#define TAS_LOG_PATH_KEY        "log_path"
+#define TAS_ADDR_FAMILIES_KEY   "addr_families"
+
+#define TAS_ADDR_FAMILIES_INET_KEY      "inet"
+#define TAS_ADDR_FAMILIES_INET6_KEY     "inet6"
+#define TAS_ADDR_FAMILIES_UNSPEC_KEY    "unspec"
+
+#define CLIENT_REQ_BUFFER_SIZE  512
+#define MAX_DB_PATH_LEN         256
+
+#define ADDR_FAMILY_INET    0x1
+#define ADDR_FAMILY_INET6   0x2
+#define ADDR_FAMILY_UNSPEC  0x4
 
 struct tas_client_req {
     char ifname[IFNAMSIZ];
@@ -28,8 +46,14 @@ struct tas_ctx {
     uint32_t *tables_inet6;
     uint32_t *tables_unspec;
     uint32_t num_table_elements;
+    uint32_t num_tables;
+    uint32_t table_offset;
+    uint8_t socket_path[TA_SHARED_MAX_ADDR_SIZE];
+    //todo: consider if I should bother carrying this around
+    uint8_t db_path[MAX_DB_PATH_LEN];
     //todo: allocate this separatly?
     uint8_t client_req_buffer[CLIENT_REQ_BUFFER_SIZE];
+    uint16_t table_timeout;
     uint8_t use_syslog;
 };
 

@@ -33,7 +33,7 @@ static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
 
     //Prevent reurning file descriptors larger than the limit. Larger than
     //because lowest bit has index 1, not 0 (so we have 1-MAX and not 0-MAX -1)
-    if (rt_table > ctx->num_table_elements)
+    if (rt_table > ctx->num_tables)
         return 0;
     else
         return rt_table;
@@ -60,9 +60,30 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
         struct tas_client_req *req, uint32_t *rt_table)
 {
     uint32_t rt_table_returned = 0;
-    //check database for existing table allocation
 
-    //allocate table if not foundfound
+    switch(req->addr_family) {
+    case AF_INET:
+        if (!ctx->tables_inet) {
+            return 0;
+        }
+        break;
+    case AF_INET6:
+        if (!ctx->tables_inet6) {
+            return 0;
+        }
+        break;
+    case AF_UNSPEC:
+        if (!ctx->tables_unspec) {
+            return 0;
+        }
+        break;
+    default:
+        return 0;
+    }
+
+    //check database for existing table allocation
+    
+    //allocate table if not found
     if (!(rt_table_returned = allocate_table(ctx, req->addr_family)))
         return 0;
 

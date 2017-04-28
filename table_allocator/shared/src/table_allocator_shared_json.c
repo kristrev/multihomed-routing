@@ -75,7 +75,7 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
             }
         } else if (!strcmp(key, TA_SHARED_JSON_FAMILY_KEY) &&
                 json_object_is_type(val, json_type_int)) {
-            *addr_family = json_object_get_int(val);        
+            *addr_family = json_object_get_int(val);
         } else if (!strcmp(key, TA_SHARED_JSON_IFNAME_KEY) &&
                 json_object_is_type(val, json_type_string)) {
             str_val = json_object_get_string(val);
@@ -92,10 +92,10 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
             }
         } else if (!strcmp(key, TA_SHARED_JSON_CMD_KEY) &&
                 json_object_is_type(val, json_type_int)) {
-            *cmd = json_object_get_int(val); 
+            *cmd = json_object_get_int(val);
         } else if (!strcmp(key, TA_SHARED_JSON_VERSION_KEY) &&
                 json_object_is_type(val, json_type_int)) {
-            *ver = json_object_get_int(val); 
+            *ver = json_object_get_int(val);
         }
     }
 
