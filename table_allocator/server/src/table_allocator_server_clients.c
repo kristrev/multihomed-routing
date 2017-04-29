@@ -128,5 +128,18 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
 uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
         struct tas_client_req *req)
 {
-    return table_allocator_sqlite_remove_table(ctx, req);
+    uint32_t rt_table = table_allocator_sqlite_get_table(ctx, req);
+
+    //if no table is find, just return succesful to prevent for example clients
+    //hanging on releasing non-existent leases
+    if (!rt_table) {
+        return 1;
+    }
+
+    if (table_allocator_sqlite_remove_table(ctx, req)) {
+        release_table(ctx, req->addr_family, rt_table);
+        return 1;
+    } else {
+        return 0;
+    }
 }
