@@ -80,18 +80,21 @@ static void parse_addr_families(struct json_object *fam_obj, uint8_t *mask)
         if (!strcmp(key, TAS_ADDR_FAMILIES_INET_KEY) &&
                 json_object_is_type(val, json_type_boolean)) {
             add_addr_family = json_object_get_boolean(val);
-            if (add_addr_family)
+            if (add_addr_family) {
                 *mask |= ADDR_FAMILY_INET;
+            }
         } else if (!strcmp(key, TAS_ADDR_FAMILIES_INET6_KEY) &&
                 json_object_is_type(val, json_type_boolean)) {
             add_addr_family = json_object_get_boolean(val);
-            if (add_addr_family)
+            if (add_addr_family) {
                 *mask |= ADDR_FAMILY_INET6;
+            }
         } else if (!strcmp(key, TAS_ADDR_FAMILIES_UNSPEC_KEY) &&
                 json_object_is_type(val, json_type_boolean)) {
             add_addr_family = json_object_get_boolean(val);
-            if (add_addr_family)
+            if (add_addr_family) {
                 *mask |= ADDR_FAMILY_UNSPEC;
+            }
         }
     }
 }

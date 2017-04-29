@@ -43,7 +43,8 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     struct tas_ctx *ctx = handle->data;
     struct tas_client_req *req = ctx->req;
     int32_t retval, sock_fd;
-    uint32_t table;
+    uint32_t table, reply_buf_len = 0;
+    uint8_t reply_buf[TA_SHARED_MAX_JSON_LEN] = {0};
     const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
 
     //ignore data done or partial reads, or buffer is big enough to store all
@@ -76,7 +77,13 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //check command and release/request table
     if (req->cmd == TA_SHARED_CMD_REQ) {
-        retval = table_allocator_server_clients_handle_req(ctx, req, &table);
+        if (table_allocator_server_clients_handle_req(ctx, req, &table)) {
+            reply_buf_len = table_allocator_shared_json_gen_response(table,
+                    reply_buf);
+            //return response
+        } else {
+            //return generic error response
+        }
 
     } else if (req->cmd == TA_SHARED_CMD_REL) {
     
@@ -85,13 +92,19 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
                 req->cmd, un_addr->sun_path);
         return;
     }
-#if 0
-    //send reply
 
+    if (!reply_buf_len) {
+        return;
+    }
+
+    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Will send %s to client %s\n", reply_buf,
+            un_addr->sun_path);
+
+    //send reply
     uv_fileno((const uv_handle_t*) handle, &sock_fd);
 
     //addr is always null, client needs to bind and pass the address in the JSON
-    retval = sendto(sock_fd, buf->base, nread, 0, (const struct sockaddr*) addr,
+    retval = sendto(sock_fd, reply_buf, reply_buf_len, 0, addr,
             sizeof(struct sockaddr_un));
 
     if (retval < 0) {
@@ -100,7 +113,6 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 
     }
-#endif
 }
 
 void unix_socket_timeout_cb(uv_timer_t *handle)

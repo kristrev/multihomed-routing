@@ -102,3 +102,47 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
     json_object_put(json_obj);
     return 1;
 }
+
+uint32_t table_allocator_shared_json_gen_response(uint32_t table, uint8_t *buf)
+{
+    struct json_object *json_obj = NULL, *obj_add;
+    const char *json_str;
+    uint32_t buf_len;
+
+    if (!(json_obj = json_object_new_object())) {
+        return 0;
+    }
+
+    if (!(obj_add = json_object_new_int(TA_VERSION))) {
+        json_object_put(json_obj);
+        return 0;
+    }
+    json_object_object_add(json_obj, TA_SHARED_JSON_VERSION_KEY, obj_add);
+
+    if (!(obj_add = json_object_new_int(TA_SHARED_CMD_RESP))) {
+        json_object_put(json_obj);
+        return 0;
+    }
+    json_object_object_add(json_obj, TA_SHARED_JSON_CMD_KEY, obj_add);
+
+    if (!(obj_add = json_object_new_int64(table))) {
+        json_object_put(json_obj);
+        return 0;
+    }
+    json_object_object_add(json_obj, TA_SHARED_JSON_TABLE_KEY, obj_add);
+
+    json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PLAIN);
+
+    //remember that buffer is expected to be 0 terminated (or at least that
+    //there is room for the 0 byte on receive)
+    if (strlen(json_str) >= TA_SHARED_MAX_JSON_LEN) {
+        json_object_put(json_obj);
+        return 0;
+    }
+
+    memcpy(buf, json_str, strlen(json_str));
+    buf_len = strlen(json_str);
+    json_object_put(json_obj);
+
+    return buf_len;
+}
