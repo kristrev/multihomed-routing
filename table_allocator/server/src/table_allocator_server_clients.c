@@ -125,9 +125,11 @@ static void release_dead_lease(void *ptr, uint8_t addr_family,
 {
     struct tas_ctx *ctx = ptr;
 
-    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Will release dead lease on table %u-%u\n",
-            addr_family, rt_table);
-    release_table(ctx, addr_family, rt_table);
+    if (!is_table_free(ctx, addr_family, rt_table)) {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Will release dead lease on table "
+                "%u-%u\n", addr_family, rt_table);
+        release_table(ctx, addr_family, rt_table);
+    }
 }
 
 void table_allocator_server_clients_delete_dead_leases(struct tas_ctx *ctx)

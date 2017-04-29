@@ -28,7 +28,7 @@
 #define ADDR_FAMILY_UNSPEC  0x4
 
 //check for dead leases every fifth minute
-#define DEAD_LEASE_TIMEOUT  30000
+#define DEAD_LEASE_TIMEOUT  300000
 
 struct tas_client_req {
     char ifname[IFNAMSIZ];
