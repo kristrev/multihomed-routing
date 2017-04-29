@@ -84,7 +84,10 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
                     reply_buf);
         }
     } else if (req->cmd == TA_SHARED_CMD_REL) {
-    
+        if (table_allocator_server_clients_handle_release(ctx, req)) {
+            reply_buf_len = table_allocator_shared_json_gen_response(0,
+                    reply_buf);
+        }
     } else {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Received unknown command %u from %s\n",
                 req->cmd, un_addr->sun_path);

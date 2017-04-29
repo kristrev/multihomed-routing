@@ -21,6 +21,8 @@ struct tac_ctx {
     uint8_t rcv_buf[TA_SHARED_MAX_JSON_LEN];
     uint8_t use_syslog;
     uint8_t addr_family;
+    //request or release
+    uint8_t cmd;
 };
 
 #endif

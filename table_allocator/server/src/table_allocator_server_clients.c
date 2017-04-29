@@ -126,7 +126,7 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
 }
 
 uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
-        struct tas_client_req *req, uint32_t table)
+        struct tas_client_req *req)
 {
-    return table_allocator_sqlite_remove_table(ctx, req, table);
+    return table_allocator_sqlite_remove_table(ctx, req);
 }

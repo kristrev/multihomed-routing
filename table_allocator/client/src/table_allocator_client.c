@@ -70,7 +70,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     const char *json_str;
     
     req_obj = table_allocator_shared_json_create_req(ctx->address, ctx->ifname,
-            ctx->tag, ctx->addr_family, TA_SHARED_CMD_REQ);
+            ctx->tag, ctx->addr_family, ctx->cmd);
 
     if (!req_obj) {
         if (uv_timer_start(&(ctx->request_timeout_handle),
@@ -184,6 +184,8 @@ static void usage()
     fprintf(stdout, "\t-a/--address: address to allocate table for <r>\n");
     fprintf(stdout, "\t-i/--ifname: interface to allocate table for <r>\n");
     fprintf(stdout, "\t-t/--tag: optional tag to send to server\n");
+    fprintf(stdout, "\t-r/--release: set command to release instead of request\n");
+    fprintf(stdout, "\t-d/--destination: Path to server socket <r>\n");
     fprintf(stdout, "\t-h/--help: this information\n");
 }
 
@@ -199,12 +201,13 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         {"address", required_argument, NULL, 'a'},
         {"ifname", required_argument, NULL, 'i'},
         {"tag", required_argument, NULL, 't'},
+        {"release", no_argument, NULL, 'r'},
         {"destination", required_argument, NULL, 'd'},
         {"help", no_argument, NULL, 'h'},
     };
 
     while (1) {
-        opt = getopt_long(argc, argv, "46sl:a:i:t:d:h", options, &option_index);
+        opt = getopt_long(argc, argv, "46sl:a:i:t:d:r:h", options, &option_index);
 
         if (opt == -1)
             break;
@@ -230,6 +233,9 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             break;
         case 't':
             tag = optarg;
+            break;
+        case 'r':
+            ctx->cmd = TA_SHARED_CMD_REL;
             break;
         case 'd':
             destination = optarg;
@@ -326,6 +332,7 @@ int main(int argc, char *argv[])
     ctx->use_syslog = 0;
     ctx->logfile = stderr;
     ctx->addr_family = AF_UNSPEC;
+    ctx->cmd = TA_SHARED_CMD_REQ;
 
     if (!parse_cmd_args(ctx, argc, argv)) {
         free(ctx);
