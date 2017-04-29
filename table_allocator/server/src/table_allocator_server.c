@@ -5,11 +5,12 @@
 #include <json-c/json.h>
 #include <string.h>
 
-#include "table_allocator_server.h"
-#include "table_allocator_server_sockets.h"
-
 #include <table_allocator_shared_log.h>
 #include <table_allocator_shared_libuv_helpers.h>
+
+#include "table_allocator_server.h"
+#include "table_allocator_server_sockets.h"
+#include "table_allocator_server_sqlite.h"
 
 static void populate_table_map(uint32_t *table_map, uint32_t num_elems)
 {
@@ -68,6 +69,14 @@ static uint8_t configure_rt_tables(struct tas_ctx *ctx, uint8_t addr_families)
     }
 
     ctx->num_table_elements = num_table_elements;
+
+    return 1;
+}
+
+static uint8_t configure_table_db(struct tas_ctx *ctx)
+{
+    if (!table_allocator_server_sqlite_create_db(ctx))
+        return 0;
 
     return 1;
 }
@@ -218,6 +227,12 @@ static uint8_t parse_config(struct tas_ctx *ctx, const char *conf_file_path)
 
     if (!configure_rt_tables(ctx, addr_fam_mask)) {
         TA_PRINT(stderr, "Failed to configure routing tables\n");
+        json_object_put(conf_obj);
+        return 0;
+    }
+
+    if (!configure_table_db(ctx)) {
+        TA_PRINT(stderr, "Failed to configure database\n");
         json_object_put(conf_obj);
         return 0;
     }

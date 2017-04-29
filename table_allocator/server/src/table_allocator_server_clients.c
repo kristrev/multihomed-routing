@@ -5,6 +5,7 @@
 
 #include "table_allocator_server_clients.h"
 #include "table_allocator_server.h"
+#include "table_allocator_server_sqlite.h"
 
 static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
 {
@@ -42,14 +43,25 @@ static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
 static uint8_t release_table(struct tas_ctx *ctx, uint8_t addr_family,
         uint32_t rt_table)
 {
-#if 0
-    uint32_t element_index = (ip4table - 1) >> 5;
+    uint32_t element_index, element_bit;
+
+    //we do not add +1, since when using the normal bitwise operators we index
+    //at 0
+    rt_table = rt_table - ctx->table_offset;
+
+    element_index = rt_table >> 5;
     //What we do here is to mask out the lowest five bits. They contain the
     //index of the bit to be set (remember that 32 is 0x20);
-    int32_t element_bit = (ip4table - 1) & 0x1F;
+     element_bit = rt_table & 0x1F;
 
-    mIp4TableVals[element_index] ^= (1 << element_bit);
-#endif
+    if (addr_family == AF_INET) {
+        ctx->tables_inet[element_index] ^= (1 << element_bit);
+    } else if (addr_family == AF_INET6) {
+        ctx->tables_inet6[element_index] ^= (1 << element_bit);
+    } else {
+        ctx->tables_unspec[element_index] ^= (1 << element_bit);
+    }
+
     return 0;
 }
 
@@ -91,6 +103,12 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     //1 as index for the first bit)
     rt_table_returned = ctx->table_offset + (rt_table_returned - 1);
     TA_PRINT(ctx->logfile, "Allocated table %u\n", rt_table_returned);
+
+    //insert into database
+    if (!table_allocator_sqlite_insert_table(ctx, req, rt_table_returned)) {
+        release_table(ctx, req->addr_family, rt_table_returned);
+        return 0;
+    }
 
     *rt_table = rt_table_returned;
     return 1;

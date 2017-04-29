@@ -15,6 +15,7 @@ set(SOURCE
     ${PROJECT_SRC_DIR}/table_allocator_server.c
     ${PROJECT_SRC_DIR}/table_allocator_server_sockets.c
     ${PROJECT_SRC_DIR}/table_allocator_server_clients.c
+    ${PROJECT_SRC_DIR}/table_allocator_server_sqlite.c
 ) 
 
 include_directories("${PROJECT_INCLUDE_DIR}")

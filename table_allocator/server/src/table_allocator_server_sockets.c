@@ -162,4 +162,3 @@ void unix_socket_timeout_cb(uv_timer_t *handle)
 		}
     }
 }
-

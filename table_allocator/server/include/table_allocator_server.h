@@ -3,6 +3,7 @@
 
 #include <uv.h>
 #include <linux/if.h>
+#include <sqlite3.h>
 
 #include <table_allocator_shared_json.h>
 
@@ -40,17 +41,28 @@ struct tas_ctx {
     uv_udp_t unix_socket_handle;
 	uv_timer_t unix_socket_timeout_handle;
     FILE *logfile;
+
+    //different database pointers/handlers
+    sqlite3 *db_handle;
+    sqlite3_stmt *insert_rt_table;
+    sqlite3_stmt *select_rt_table;
+    sqlite3_stmt *delete_rt_table;
+
+    //current we only support one request
     struct tas_client_req *req;
-    //todo: allocate these separatly?
+
+    //in memory table map
     uint32_t *tables_inet;
     uint32_t *tables_inet6;
     uint32_t *tables_unspec;
     uint32_t num_table_elements;
     uint32_t num_tables;
     uint32_t table_offset;
+
+    //paths (we don't carry the logfile around)
     uint8_t socket_path[TA_SHARED_MAX_ADDR_SIZE];
-    //todo: consider if I should bother carrying this around
     uint8_t db_path[MAX_DB_PATH_LEN];
+
     //todo: allocate this separatly?
     uint8_t client_req_buffer[CLIENT_REQ_BUFFER_SIZE];
     uint16_t table_timeout;
