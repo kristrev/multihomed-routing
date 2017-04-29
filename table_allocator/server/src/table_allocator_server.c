@@ -11,6 +11,12 @@
 #include "table_allocator_server.h"
 #include "table_allocator_server_sockets.h"
 #include "table_allocator_server_sqlite.h"
+#include "table_allocator_server_clients.h"
+
+static void dead_leases_timeout_cb(uv_timer_t *handle)
+{
+    table_allocator_server_clients_delete_dead_leases(handle->data);
+}
 
 static void populate_table_map(uint32_t *table_map, uint32_t num_elems)
 {
@@ -304,6 +310,22 @@ int main(int argc, char *argv[])
         TA_PRINT(stderr, "Failed to configure domain handle\n");
         exit(EXIT_FAILURE);
     }
+
+    //configure the dead lease detection timer - when this is triggered, we will
+    //free any expired lease
+    if (uv_timer_init(&(ctx->event_loop), &(ctx->dead_leases_timeout_handle))) {
+        TA_PRINT(stderr, "Initializing dead leases timeout failed\n");
+        exit(EXIT_FAILURE);
+	}
+
+    ctx->dead_leases_timeout_handle.data = ctx;
+
+	if (uv_timer_start(&(ctx->dead_leases_timeout_handle),
+                dead_leases_timeout_cb, DEAD_LEASE_TIMEOUT,
+                DEAD_LEASE_TIMEOUT)) {
+        TA_PRINT(stderr, "Starting dead leases timer failed\n");
+		exit(EXIT_FAILURE);
+	}
 
     TA_PRINT_SYSLOG(ctx, LOG_INFO, "Started Table Allocator Server\n"
            "\tSocket path: %s\n"

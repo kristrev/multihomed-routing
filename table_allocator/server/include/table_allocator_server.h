@@ -27,6 +27,9 @@
 #define ADDR_FAMILY_INET6   0x2
 #define ADDR_FAMILY_UNSPEC  0x4
 
+//check for dead leases every fifth minute
+#define DEAD_LEASE_TIMEOUT  30000
+
 struct tas_client_req {
     char ifname[IFNAMSIZ];
     char tag[TA_SHARED_MAX_TAG_SIZE];
@@ -39,7 +42,8 @@ struct tas_client_req {
 struct tas_ctx {
     uv_loop_t event_loop;
     uv_udp_t unix_socket_handle;
-	uv_timer_t unix_socket_timeout_handle;
+    uv_timer_t unix_socket_timeout_handle;
+    uv_timer_t dead_leases_timeout_handle;
     FILE *logfile;
 
     //different database pointers/handlers
@@ -48,6 +52,8 @@ struct tas_ctx {
     sqlite3_stmt *select_rt_table;
     sqlite3_stmt *delete_rt_table;
     sqlite3_stmt *update_rt_table;
+    sqlite3_stmt *select_dead_leases;
+    sqlite3_stmt *delete_dead_leases;
 
     //current we only support one request
     struct tas_client_req *req;

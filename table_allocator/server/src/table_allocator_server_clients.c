@@ -41,7 +41,7 @@ static uint32_t allocate_table(struct tas_ctx *ctx, uint8_t addr_family)
         return rt_table;
 }
 
-static uint8_t release_table(struct tas_ctx *ctx, uint8_t addr_family,
+static void release_table(struct tas_ctx *ctx, uint8_t addr_family,
         uint32_t rt_table)
 {
     uint32_t element_index, element_bit;
@@ -62,8 +62,26 @@ static uint8_t release_table(struct tas_ctx *ctx, uint8_t addr_family,
     } else {
         ctx->tables_unspec[element_index] ^= (1 << element_bit);
     }
+}
 
-    return 0;
+static void release_dead_lease(void *ptr, uint8_t addr_family,
+        uint32_t rt_table)
+{
+    struct tas_ctx *ctx = ptr;
+
+    release_table(ctx, addr_family, rt_table);
+}
+
+void table_allocator_server_clients_delete_dead_leases(struct tas_ctx *ctx)
+{
+    struct timespec t_now;
+    
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &t_now)) {
+        return;
+    }
+
+    table_allocator_sqlite_delete_dead_leases(ctx, t_now.tv_sec,
+            release_dead_lease);
 }
 
 //return 0/1 on success, on successs, table is stored in table. Reason for not
@@ -96,7 +114,7 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
         return 0;
     }
 
-    if (clock_gettime(CLOCK_MONOTONIC, &t_now)) {
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &t_now)) {
         return 0;
     }
 
@@ -106,6 +124,8 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     rt_table_returned = table_allocator_sqlite_get_table(ctx, req);
 
     if (rt_table_returned) {
+        //check that table is set in map
+
         //update lease, silently fail and trust client logic (for now)
         if (!table_allocator_sqlite_update_lease(ctx, rt_table_returned,
                     req->addr_family, lease_sec)) {

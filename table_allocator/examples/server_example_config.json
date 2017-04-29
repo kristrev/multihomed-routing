@@ -2,7 +2,7 @@
 	"socket_path": "tas_socket",
 	"table_offset": 10000,
 	"num_tables": 32,
-	"table_timeout": 3600,
+	"table_timeout": 300,
 	"db_path": "/tmp/tas.db",
 	"do_syslog": true,
 	//"log_path": "/tmp/tas.log",
