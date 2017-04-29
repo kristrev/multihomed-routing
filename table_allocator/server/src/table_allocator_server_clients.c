@@ -94,7 +94,7 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     }
 
     //check database for existing table allocation
-    rt_table_returned = table_allocator_sqlite3_get_table(ctx, req);
+    rt_table_returned = table_allocator_sqlite_get_table(ctx, req);
 
     if (rt_table_returned) {
         //update lease
@@ -128,5 +128,5 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
 uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
         struct tas_client_req *req, uint32_t table)
 {
-    return 0;
+    return table_allocator_sqlite_remove_table(ctx, req, table);
 }
