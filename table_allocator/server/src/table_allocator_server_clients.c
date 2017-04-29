@@ -94,6 +94,17 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     }
 
     //check database for existing table allocation
+    rt_table_returned = table_allocator_sqlite3_get_table(ctx, req);
+
+    if (rt_table_returned) {
+        //update lease
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Reallocated table %u to %s (%s)\n",
+                rt_table_returned, req->address, req->ifname);
+
+        *rt_table = rt_table_returned;
+        return 1;
+    }
+
     
     //allocate table if not found
     if (!(rt_table_returned = allocate_table(ctx, req->addr_family)))
