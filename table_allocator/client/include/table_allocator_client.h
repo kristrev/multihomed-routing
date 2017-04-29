@@ -14,6 +14,8 @@ struct tac_ctx {
 	uv_timer_t unix_socket_timeout_handle;
 	uv_timer_t request_timeout_handle;
     FILE *logfile;
+    uint32_t rt_table;
+    uint32_t lease_expires;
     char ifname[IFNAMSIZ];
     char tag[TA_SHARED_MAX_TAG_SIZE];
     char address[INET6_ADDRSTRLEN];

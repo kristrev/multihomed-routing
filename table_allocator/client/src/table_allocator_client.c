@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <getopt.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #include "table_allocator_client.h"
 
@@ -18,6 +19,7 @@
 
 static void table_allocator_client_send_request(struct tac_ctx *ctx);
 static void unix_socket_timeout_cb(uv_timer_t *handle);
+static void client_request_timeout_handle_cb(uv_timer_t *handle);
 
 static void unix_socket_handle_close_cb(uv_handle_t *handle)
 {
@@ -27,6 +29,17 @@ static void unix_socket_handle_close_cb(uv_handle_t *handle)
     uv_udp_init(&(ctx->event_loop), &(ctx->unix_socket_handle));
     uv_timer_start(&(ctx->unix_socket_timeout_handle), unix_socket_timeout_cb,
             0, 0);
+}
+
+static void unix_socket_stop_recv(struct tac_ctx *ctx)
+{
+	uv_udp_recv_stop(&(ctx->unix_socket_handle));
+	uv_timer_stop(&(ctx->request_timeout_handle));
+	uv_timer_stop(&(ctx->unix_socket_timeout_handle));
+
+	if (!uv_is_closing((uv_handle_t*) & (ctx->unix_socket_handle)))
+		uv_close((uv_handle_t*) &(ctx->unix_socket_handle),
+                unix_socket_handle_close_cb);
 }
 
 static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
@@ -41,24 +54,64 @@ static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
+    struct tac_ctx *ctx = handle->data;
+    uint8_t ver, cmd;
+    const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
+    struct timespec tv_now;
+    uint32_t tdiff;
 
+    //rearm send timer
+    //todo: look at error handling here, if I have missed something
+    if (nread == 0) {
+        return;
+    } else if (flags & UV_UDP_PARTIAL) {
+        uv_timer_start(&(ctx->request_timeout_handle),
+                client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0);
+        return;
+    } else if (nread < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Client socket failed, error: %s\n",
+                uv_strerror(nread));
+        unix_socket_stop_recv(ctx);
+        return;
+    }
+
+    //parse json
+    if (!tables_allocator_shared_json_parse_client_reply(buf->base,
+                &ver, &cmd, &(ctx->rt_table), &(ctx->lease_expires))) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to parse request from: %s\n",
+                un_addr->sun_path + 1);
+        return;
+    }
+
+    TA_PRINT(ctx->logfile, "Parsed request from %s\n", un_addr->sun_path + 1);
+
+    //check cmd and version
+    if (cmd != TA_SHARED_CMD_RESP || ver != TA_VERSION || !(ctx->rt_table)) {
+        uv_timer_start(&(ctx->request_timeout_handle),
+                client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0);
+        return;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tv_now);
+    //todo: guard this better
+    tdiff = ctx->lease_expires - tv_now.tv_sec;
+
+    //write table
+    printf("%u\n", ctx->rt_table);
+    
+    //start running as daemon
+
+    printf("%u\n", (tdiff/2)*1000);
+
+    //start request timeout again
+    uv_timer_start(&(ctx->request_timeout_handle),
+            client_request_timeout_handle_cb, (tdiff/2)*1000, 0);
 }
 
 static void client_request_timeout_handle_cb(uv_timer_t *handle)
 {
     struct tac_ctx *ctx = handle->data;
-
     table_allocator_client_send_request(ctx);
-
-#if 0
-	uv_udp_recv_stop(&(ctx->unix_socket_handle));
-	uv_timer_stop(&(ctx->request_timeout_handle));
-	uv_timer_stop(&(ctx->unix_socket_timeout_handle));
-
-	if (!uv_is_closing((uv_handle_t*) & (ctx->unix_socket_handle)))
-		uv_close((uv_handle_t*) &(ctx->unix_socket_handle),
-                unix_socket_handle_close_cb);
-#endif
 }
 
 static void table_allocator_client_send_request(struct tac_ctx *ctx)

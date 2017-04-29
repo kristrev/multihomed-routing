@@ -153,3 +153,34 @@ uint32_t table_allocator_shared_json_gen_response(uint32_t table,
 
     return buf_len;
 }
+
+uint8_t tables_allocator_shared_json_parse_client_reply(
+        const char *json_obj_str, uint8_t *ver, uint8_t *cmd, uint32_t *table,
+        uint32_t *lease_expires)
+{
+    struct json_object *json_obj;
+
+    if (!(json_obj = json_tokener_parse(json_obj_str))) {
+        return 0;
+    }
+
+    json_object_object_foreach(json_obj, key, val) {
+        if (!strcmp(key, TA_SHARED_JSON_VERSION_KEY) &&
+                json_object_is_type(val, json_type_int)) {
+            *ver = json_object_get_int(val);
+        } else if (!strcmp(key, TA_SHARED_JSON_CMD_KEY) &&
+                json_object_is_type(val, json_type_int)) {
+            *cmd = json_object_get_int(val);
+        } else if (!strcmp(key, TA_SHARED_JSON_TABLE_KEY) &&
+                json_object_is_type(val, json_type_int)) {
+            *table = json_object_get_int(val);
+        } else if (!strcmp(key, TA_SHARED_JSON_LEASE_EXPIRES_KEY) &&
+                json_object_is_type(val, json_type_int)) {
+            *lease_expires = json_object_get_int(val);
+        }
+    }
+
+    json_object_put(json_obj);
+    return 1;
+}
+

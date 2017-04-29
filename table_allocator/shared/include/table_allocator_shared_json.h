@@ -43,4 +43,7 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
 uint32_t table_allocator_shared_json_gen_response(uint32_t table,
         uint32_t lease_expires, uint8_t *buf);
 
+uint8_t tables_allocator_shared_json_parse_client_reply(
+        const char *json_obj_str, uint8_t *ver, uint8_t *cmd, uint32_t *table,
+        uint32_t *lease_expires);
 #endif
