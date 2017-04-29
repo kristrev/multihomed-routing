@@ -100,7 +100,8 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //write table
     printf("%u\n", ctx->rt_table);
-    
+    fflush(stdout);
+
     //start running as daemon
     //todo: add some error handling or just fail?
     if (!ctx->daemonized && daemon(0, 0)) {
