@@ -87,6 +87,9 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     if (!(rt_table_returned = allocate_table(ctx, req->addr_family)))
         return 0;
 
+    //subtract 1 from table returned so that offset works correctly (ffs returns
+    //1 as index for the first bit)
+    rt_table_returned = ctx->table_offset + (rt_table_returned - 1);
     TA_PRINT(ctx->logfile, "Allocated table %u\n", rt_table_returned);
 
     *rt_table = rt_table_returned;
