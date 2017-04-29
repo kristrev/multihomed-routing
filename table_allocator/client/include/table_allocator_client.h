@@ -25,6 +25,8 @@ struct tac_ctx {
     uint8_t addr_family;
     //request or release
     uint8_t cmd;
+    uint8_t daemonize;
+    uint8_t daemonized;
 };
 
 #endif

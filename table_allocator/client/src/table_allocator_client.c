@@ -83,7 +83,6 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         return;
     }
 
-    TA_PRINT(ctx->logfile, "Parsed request from %s\n", un_addr->sun_path + 1);
 
     //check cmd and version
     if (cmd != TA_SHARED_CMD_RESP || ver != TA_VERSION || !(ctx->rt_table)) {
@@ -91,6 +90,9 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
                 client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0);
         return;
     }
+
+    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server %s Table %u Lease %u\n",
+            un_addr->sun_path + 1, ctx->rt_table, ctx->lease_expires);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &tv_now);
     //todo: guard this better
@@ -100,9 +102,13 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     printf("%u\n", ctx->rt_table);
     
     //start running as daemon
+    //todo: add some error handling or just fail?
+    if (!ctx->daemonized && daemon(0, 0)) {
+        TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to daemonize client");
+        exit(EXIT_FAILURE);
+    }
 
-    printf("%u\n", (tdiff/2)*1000);
-
+    ctx->daemonized = 1;
     //start request timeout again
     uv_timer_start(&(ctx->request_timeout_handle),
             client_request_timeout_handle_cb, (tdiff/2)*1000, 0);
