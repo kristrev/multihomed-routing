@@ -198,7 +198,7 @@ static uint8_t parse_config(struct tas_ctx *ctx, const char *conf_file_path)
         return 0;
     }
 
-    if (!(ctx->logfile = fopen(log_path, "a"))) {
+    if (log_path && !(ctx->logfile = fopen(log_path, "a"))) {
         //remember that logfile might be NULL here
         TA_PRINT(stderr, "Could not open logilfe: %s\n", log_path);
         json_object_put(conf_obj);
