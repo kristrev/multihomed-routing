@@ -13,4 +13,6 @@ uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
 
 void table_allocator_server_clients_delete_dead_leases(struct tas_ctx *ctx);
 
+void table_allocator_server_clients_set_table(struct tas_ctx *ctx,
+        uint8_t addr_family, uint32_t rt_table);
 #endif

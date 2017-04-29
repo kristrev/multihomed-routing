@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <json-c/json.h>
 #include <string.h>
+#include <time.h>
 
 #include <table_allocator_shared_log.h>
 #include <table_allocator_shared_libuv_helpers.h>
@@ -12,6 +13,12 @@
 #include "table_allocator_server_sockets.h"
 #include "table_allocator_server_sqlite.h"
 #include "table_allocator_server_clients.h"
+
+static void populate_table_map_cb(void *ptr, uint8_t addr_family,
+        uint32_t rt_table)
+{
+    table_allocator_server_clients_set_table(ptr, addr_family, rt_table);
+}
 
 static void dead_leases_timeout_cb(uv_timer_t *handle)
 {
@@ -253,6 +260,7 @@ int main(int argc, char *argv[])
     struct tas_ctx *ctx;
     const char *conf_file_path = NULL;
     int32_t opt;
+    struct timespec t_now;
 
     //parse the one command line argument we support
     while ((opt = getopt(argc, argv, "c:")) != -1) {
@@ -326,6 +334,15 @@ int main(int argc, char *argv[])
         TA_PRINT(stderr, "Starting dead leases timer failed\n");
 		exit(EXIT_FAILURE);
 	}
+
+    //do the monotonic_raw test and building map in the same go
+    if (clock_gettime(CLOCK_MONOTONIC_RAW, &t_now)) {
+        TA_PRINT(stderr, "No support for MONOTONIC_RAW, can't continue\n");
+        exit(EXIT_FAILURE);
+    } else {
+        table_allocator_sqlite_build_table_map(ctx, t_now.tv_sec,
+                populate_table_map_cb);
+    }
 
     TA_PRINT_SYSLOG(ctx, LOG_INFO, "Started Table Allocator Server\n"
            "\tSocket path: %s\n"

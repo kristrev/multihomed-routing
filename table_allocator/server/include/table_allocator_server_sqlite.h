@@ -52,10 +52,18 @@
                             "WHERE "\
                                 "LeaseExpires <= ?"
 
+//used when constructing the map on application start
+#define SELECT_ALIVE_LEASES "SELECT "\
+                                "RtTable,AddrFamily "\
+                            "FROM "\
+                                "RtTables "\
+                            "WHERE "\
+                                "LeaseExpires > ?"
+
 struct tas_ctx;
 struct tas_client_req;
 
-typedef void (*dead_leases_cb)(void *ptr, uint8_t addr_family,
+typedef void (*check_table_cb)(void *ptr, uint8_t addr_family,
         uint32_t rt_table);
 
 //create db and set up queries. Returns 0/1 on failure/success
@@ -80,6 +88,10 @@ uint8_t table_allocator_sqlite_update_lease(struct tas_ctx *ctx,
 
 //delete dead leases, don't care about family
 uint8_t table_allocator_sqlite_delete_dead_leases(struct tas_ctx *ctx,
-        uint32_t lease_limit, dead_leases_cb cb);
+        uint32_t lease_limit, check_table_cb cb);
+
+//update table map with info from db on start of application
+uint8_t table_allocator_sqlite_build_table_map(struct tas_ctx *ctx,
+        uint32_t lease_limit, check_table_cb cb);
 
 #endif

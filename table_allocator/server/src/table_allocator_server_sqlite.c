@@ -49,6 +49,7 @@ uint8_t table_allocator_server_sqlite_create_db(struct tas_ctx *ctx)
         return 0;
     }
 
+    ctx->db_handle = db_handle;
     return 1;
 }
 
@@ -167,7 +168,7 @@ uint8_t table_allocator_sqlite_update_lease(struct tas_ctx *ctx,
 }
 
 uint8_t table_allocator_sqlite_delete_dead_leases(struct tas_ctx *ctx,
-        uint32_t lease_limit, dead_leases_cb cb)
+        uint32_t lease_limit, check_table_cb cb)
 {
     int32_t retval;
     uint32_t rt_table;
@@ -185,8 +186,6 @@ uint8_t table_allocator_sqlite_delete_dead_leases(struct tas_ctx *ctx,
     while (sqlite3_step(ctx->select_dead_leases) == SQLITE_ROW) {
         rt_table = (uint32_t) sqlite3_column_int(ctx->select_dead_leases, 0);
         addr_family = (uint8_t) sqlite3_column_int(ctx->select_dead_leases, 1);
-        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Will delete dead lease: %u-%u\n",
-                addr_family, rt_table);
         cb(ctx, addr_family, rt_table);
     }
 
@@ -204,5 +203,36 @@ uint8_t table_allocator_sqlite_delete_dead_leases(struct tas_ctx *ctx,
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Deleting dead leases failed\n");
     }
 
+    return 1;
+}
+
+uint8_t table_allocator_sqlite_build_table_map(struct tas_ctx *ctx,
+        uint32_t lease_limit, check_table_cb cb)
+{
+    uint32_t rt_table;
+    uint8_t addr_family;
+    int32_t retval;
+    sqlite3_stmt *get_active_leases;
+
+    if ((retval = sqlite3_prepare_v2(ctx->db_handle, SELECT_ALIVE_LEASES, -1,
+                    &get_active_leases, NULL))) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Preparing SELECT_ALIVE_LEASES failed."
+                " Error: %s\n", sqlite3_errstr(retval));
+        return 0;
+    }
+
+    if (sqlite3_bind_int(get_active_leases, 1, lease_limit)) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Bind SELECT_ALIVE_LEASES failed\n");
+        sqlite3_finalize(get_active_leases);
+        return 0;
+    }
+
+    while (sqlite3_step(get_active_leases) == SQLITE_ROW) {
+        rt_table = (uint32_t) sqlite3_column_int(get_active_leases, 0);
+        addr_family = (uint8_t) sqlite3_column_int(get_active_leases, 1);
+        cb(ctx, addr_family, rt_table);
+    }
+
+    sqlite3_finalize(get_active_leases);
     return 1;
 }

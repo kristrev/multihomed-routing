@@ -64,11 +64,39 @@ static void release_table(struct tas_ctx *ctx, uint8_t addr_family,
     }
 }
 
+static void set_table(struct tas_ctx *ctx, uint8_t addr_family,
+        uint32_t rt_table)
+{
+    uint32_t element_index, element_bit;
+
+    //we do not add +1, since when using the normal bitwise operators we index
+    //at 0
+    rt_table = rt_table - ctx->table_offset;
+
+    element_index = rt_table >> 5;
+    //What we do here is to mask out the lowest five bits. They contain the
+    //index of the bit to be set (remember that 32 is 0x20);
+    element_bit = rt_table & 0x1F;
+
+    if (element_index >= ctx->num_table_elements)
+        return;
+
+    if (addr_family == AF_INET) {
+        ctx->tables_inet[element_index] ^= (1 << element_bit);
+    } else if (addr_family == AF_INET6) {
+        ctx->tables_inet6[element_index] ^= (1 << element_bit);
+    } else {
+        ctx->tables_unspec[element_index] ^= (1 << element_bit);
+    }
+}
+
 static void release_dead_lease(void *ptr, uint8_t addr_family,
         uint32_t rt_table)
 {
     struct tas_ctx *ctx = ptr;
 
+    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Will release dead lease on table %u-%u\n",
+            addr_family, rt_table);
     release_table(ctx, addr_family, rt_table);
 }
 
@@ -179,4 +207,12 @@ uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
     } else {
         return 0;
     }
+}
+
+void table_allocator_server_clients_set_table(struct tas_ctx *ctx,
+        uint8_t addr_family, uint32_t rt_table)
+{
+    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Will set active table %u-%u\n", addr_family,
+            rt_table);
+    set_table(ctx, addr_family, rt_table);
 }
