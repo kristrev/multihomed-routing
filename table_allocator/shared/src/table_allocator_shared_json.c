@@ -103,7 +103,8 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
     return 1;
 }
 
-uint32_t table_allocator_shared_json_gen_response(uint32_t table, uint8_t *buf)
+uint32_t table_allocator_shared_json_gen_response(uint32_t table,
+        uint32_t lease_expires, uint8_t *buf)
 {
     struct json_object *json_obj = NULL, *obj_add;
     const char *json_str;
@@ -130,6 +131,12 @@ uint32_t table_allocator_shared_json_gen_response(uint32_t table, uint8_t *buf)
         return 0;
     }
     json_object_object_add(json_obj, TA_SHARED_JSON_TABLE_KEY, obj_add);
+
+    if (!(obj_add = json_object_new_int64(lease_expires))) {
+        json_object_put(json_obj);
+        return 0;
+    }
+    json_object_object_add(json_obj, TA_SHARED_JSON_LEASE_EXPIRES_KEY, obj_add);
 
     json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PLAIN);
 

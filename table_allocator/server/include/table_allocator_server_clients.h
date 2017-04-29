@@ -5,7 +5,8 @@ struct tas_ctx;
 struct tas_client_req;
 
 uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
-        struct tas_client_req *req, uint32_t *rt_table);
+        struct tas_client_req *req, uint32_t *rt_table,
+        uint32_t *lease_sec_ptr);
 
 uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
         struct tas_client_req *req);

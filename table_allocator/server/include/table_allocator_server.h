@@ -47,6 +47,7 @@ struct tas_ctx {
     sqlite3_stmt *insert_rt_table;
     sqlite3_stmt *select_rt_table;
     sqlite3_stmt *delete_rt_table;
+    sqlite3_stmt *update_rt_table;
 
     //current we only support one request
     struct tas_client_req *req;

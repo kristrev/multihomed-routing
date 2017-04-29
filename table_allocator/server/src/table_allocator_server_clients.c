@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <strings.h>
+#include <time.h>
 
 #include <table_allocator_shared_log.h>
 
@@ -69,9 +70,11 @@ static uint8_t release_table(struct tas_ctx *ctx, uint8_t addr_family,
 //just returning table, is that we might want to expand with more error codes
 //later
 uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
-        struct tas_client_req *req, uint32_t *rt_table)
+        struct tas_client_req *req, uint32_t *rt_table, uint32_t *lease_sec_ptr)
 {
     uint32_t rt_table_returned = 0;
+    struct timespec t_now;
+    time_t lease_sec = 0;
 
     switch(req->addr_family) {
     case AF_INET:
@@ -93,22 +96,34 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
         return 0;
     }
 
+    if (clock_gettime(CLOCK_MONOTONIC, &t_now)) {
+        return 0;
+    }
+
+    lease_sec = t_now.tv_sec + ctx->table_timeout;
+
     //check database for existing table allocation
     rt_table_returned = table_allocator_sqlite_get_table(ctx, req);
 
     if (rt_table_returned) {
-        //update lease
+        //update lease, silently fail and trust client logic (for now)
+        if (!table_allocator_sqlite_update_lease(ctx, rt_table_returned,
+                    req->addr_family, lease_sec)) {
+            return 0;
+        }
+
         TA_PRINT_SYSLOG(ctx, LOG_INFO, "Reallocated table %u to %s (%s)\n",
                 rt_table_returned, req->address, req->ifname);
 
         *rt_table = rt_table_returned;
+        *lease_sec_ptr = lease_sec;
         return 1;
     }
-
     
     //allocate table if not found
-    if (!(rt_table_returned = allocate_table(ctx, req->addr_family)))
+    if (!(rt_table_returned = allocate_table(ctx, req->addr_family))) {
         return 0;
+    }
 
     //subtract 1 from table returned so that offset works correctly (ffs returns
     //1 as index for the first bit)
@@ -116,12 +131,14 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     TA_PRINT(ctx->logfile, "Allocated table %u\n", rt_table_returned);
 
     //insert into database
-    if (!table_allocator_sqlite_insert_table(ctx, req, rt_table_returned)) {
+    if (!table_allocator_sqlite_insert_table(ctx, req, rt_table_returned,
+                lease_sec)) {
         release_table(ctx, req->addr_family, rt_table_returned);
         return 0;
     }
 
     *rt_table = rt_table_returned;
+    *lease_sec_ptr = lease_sec;
     return 1;
 }
 

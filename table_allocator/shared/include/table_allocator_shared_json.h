@@ -3,13 +3,14 @@
 
 #include <json-c/json.h>
 
-#define TA_SHARED_JSON_ADDRESS_KEY  "address"
-#define TA_SHARED_JSON_FAMILY_KEY   "addr_family"
-#define TA_SHARED_JSON_IFNAME_KEY   "ifname"
-#define TA_SHARED_JSON_TAG_KEY      "tag"
-#define TA_SHARED_JSON_CMD_KEY      "cmd"
-#define TA_SHARED_JSON_VERSION_KEY  "version"
-#define TA_SHARED_JSON_TABLE_KEY    "table"
+#define TA_SHARED_JSON_ADDRESS_KEY          "address"
+#define TA_SHARED_JSON_FAMILY_KEY           "addr_family"
+#define TA_SHARED_JSON_IFNAME_KEY           "ifname"
+#define TA_SHARED_JSON_TAG_KEY              "tag"
+#define TA_SHARED_JSON_CMD_KEY              "cmd"
+#define TA_SHARED_JSON_VERSION_KEY          "version"
+#define TA_SHARED_JSON_TABLE_KEY            "table"
+#define TA_SHARED_JSON_LEASE_EXPIRES_KEY    "lease_expires"
 
 //todo: move to new header file table_allocator_shared.h
 //request or release are the only two commands we support now
@@ -39,6 +40,7 @@ uint8_t table_allocator_shared_json_parse_seq(const char *json_obj_char,
         char *ifname_str, char *tag_str);
 
 //generate table response, return 0 on failure, buf_len on success
-uint32_t table_allocator_shared_json_gen_response(uint32_t table, uint8_t *buf);
+uint32_t table_allocator_shared_json_gen_response(uint32_t table,
+        uint32_t lease_expires, uint8_t *buf);
 
 #endif

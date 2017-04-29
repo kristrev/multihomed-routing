@@ -43,7 +43,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     struct tas_ctx *ctx = handle->data;
     struct tas_client_req *req = ctx->req;
     int32_t retval, sock_fd;
-    uint32_t table, reply_buf_len = 0;
+    uint32_t table, reply_buf_len = 0, lease_expires;
     uint8_t reply_buf[TA_SHARED_MAX_JSON_LEN] = {0};
     const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
 
@@ -79,13 +79,14 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     if (req->cmd == TA_SHARED_CMD_REQ) {
         //todo: for now, silently fail when we don't get a tunnel. Leave it up
         //to the client logic to try again, give up or something else
-        if (table_allocator_server_clients_handle_req(ctx, req, &table)) {
+        if (table_allocator_server_clients_handle_req(ctx, req, &table,
+                    &lease_expires)) {
             reply_buf_len = table_allocator_shared_json_gen_response(table,
-                    reply_buf);
+                    lease_expires, reply_buf);
         }
     } else if (req->cmd == TA_SHARED_CMD_REL) {
         if (table_allocator_server_clients_handle_release(ctx, req)) {
-            reply_buf_len = table_allocator_shared_json_gen_response(0,
+            reply_buf_len = table_allocator_shared_json_gen_response(0, 0,
                     reply_buf);
         }
     } else {
