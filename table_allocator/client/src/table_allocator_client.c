@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <net/if.h>
 
 #include "table_allocator_client.h"
 #include "table_allocator_client_netlink.h"
@@ -252,6 +253,7 @@ static void usage()
     fprintf(stdout, "\t-s/--syslog: enable logging to syslog (default off)\n");
     fprintf(stdout, "\t-l/--log_path: path to logfile (default stderr)\n");
     fprintf(stdout, "\t-a/--address: address to allocate table for <r>\n");
+    fprintf(stdout, "\t-n/--netmask: netmask for use with address <r>\n");
     fprintf(stdout, "\t-i/--ifname: interface to allocate table for <r>\n");
     fprintf(stdout, "\t-t/--tag: optional tag to send to server\n");
     fprintf(stdout, "\t-r/--release: set command to release instead of request\n");
@@ -260,16 +262,41 @@ static void usage()
     fprintf(stdout, "\t-h/--help: this information\n");
 }
 
+static uint8_t compute_prefix_len_4(struct in_addr *netmask)
+{
+    uint8_t i;
+    uint8_t prefix_len = 0;
+
+    for (i = 0; i < 32; i++) {
+        if (netmask->s_addr >> i & 0x1) {
+            prefix_len++;
+        }
+    }
+
+    return prefix_len;
+}
+
 static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
 {
     int32_t option_index, opt;
     const char *address = NULL, *ifname = NULL, *log_path = NULL, *tag = NULL;
-    const char *destination = NULL;
-    struct sockaddr_storage addr_tmp;
+    const char *destination = NULL, *netmask = NULL;
+
+    union {
+        struct sockaddr_in *addr4;
+        struct sockaddr_in6 *addr6;
+    } u_addr;
+
+    union {
+        struct in_addr netmask4;
+        struct in6_addr netmask6;
+    } u_netmask;
+
     struct option options[] = {
         {"syslog", no_argument, NULL, 's'},
         {"log_path", required_argument, NULL, 'l'},
         {"address", required_argument, NULL, 'a'},
+        {"netmask", required_argument, NULL, 'n'},
         {"ifname", required_argument, NULL, 'i'},
         {"tag", required_argument, NULL, 't'},
         {"release", no_argument, NULL, 'r'},
@@ -279,7 +306,7 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
     };
 
     while (1) {
-        opt = getopt_long(argc, argv, "46sl:a:i:t:d:r:fh", options, &option_index);
+        opt = getopt_long(argc, argv, "46sl:a:n:i:t:d:r:fh", options, &option_index);
 
         if (opt == -1)
             break;
@@ -299,6 +326,9 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             break;
         case 'a':
             address = optarg;
+            break;
+        case 'n':
+            netmask = optarg;
             break;
         case 'i':
             ifname = optarg;
@@ -322,7 +352,8 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         }
     }
 
-    if (address == NULL || ifname == NULL || destination == NULL) {
+    if (!address || (ctx->address->addr_family == AF_INET && !netmask) ||
+            !ifname || !destination) {
         fprintf(stderr, "Missing required argument\n");
         usage();
         return 0;
@@ -355,19 +386,31 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
     }
 
     if (ctx->address->addr_family == AF_INET) {
-        if (!inet_pton(AF_INET, address, &addr_tmp)) {
+        u_addr.addr4 = (struct sockaddr_in*) &(ctx->address->addr);
+        if (!inet_pton(AF_INET, address, &(u_addr.addr4->sin_addr))) {
             fprintf(stderr, "Address is not valid: %s\n", address);
             return 0;
-        } else {
-            memcpy(ctx->address->address_str, address, strlen(address));
         }
+
+        if (!inet_pton(AF_INET, netmask, &(u_netmask.netmask4))) {
+            fprintf(stderr, "Netmask is not valid: %s\n", netmask);
+            return 0;
+        }
+
+        ctx->address->subnet_prefix_len =
+            compute_prefix_len_4(&(u_netmask.netmask4));
+
+        //keep both string and sockaddr around, since we use the string when
+        //sending requests
+        memcpy(ctx->address->address_str, address, strlen(address));
     } else if (ctx->address->addr_family == AF_INET6) {
-        if (!inet_pton(AF_INET6, address, &addr_tmp)) {
+        u_addr.addr6 = (struct sockaddr_in6*) &(ctx->address->addr);
+        if (!inet_pton(AF_INET6, address, &(u_addr.addr6->sin6_addr))) {
             fprintf(stderr, "Address is not valid: %s\n", address);
             return 0;
-        } else {
-            memcpy(ctx->address->address_str, address, strlen(address));
         }
+
+        memcpy(ctx->address->address_str, address, strlen(address));
     } else {
         if (strlen(address) >= INET6_ADDRSTRLEN) {
             fprintf(stderr, "Address too long (%zd > %u)\n", strlen(address),
@@ -385,6 +428,12 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             return 0;
         }
     } 
+
+    if (!(ctx->address->ifidx = if_nametoindex(ctx->address->ifname))) {
+        fprintf(stderr, "Could not get interface index: %s (%s)\n",
+                strerror(errno), ctx->address->ifname);
+        return 0;
+    }
 
     return 1;
 }

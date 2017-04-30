@@ -32,6 +32,7 @@ uint8_t table_allocator_client_netlink_configure(struct tac_ctx *ctx)
         return 0;
     }
 
+    //todo: make this depend on which address family is set
     if (mnl_socket_bind(mnl_sock, (1 << (RTNLGRP_IPV4_IFADDR - 1)) |
                 (1 << (RTNLGRP_LINK - 1)), MNL_SOCKET_AUTOPID) < 0)
     {

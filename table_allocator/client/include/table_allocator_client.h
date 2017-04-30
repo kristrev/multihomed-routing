@@ -15,11 +15,15 @@ struct mnl_socket;
 //keep all buffers, values, etc. related to an address here
 struct tac_address {
     struct sockaddr_storage addr;
-
     uint32_t ifidx;
+
     //allocated variables
     uint32_t rt_table;
     uint32_t lease_expires;
+
+    //will keep subnet or prefix len, depending on family
+    uint8_t subnet_prefix_len;
+    //read from command line
     uint8_t addr_family;
     char ifname[IFNAMSIZ];
     char address_str[INET6_ADDRSTRLEN];
