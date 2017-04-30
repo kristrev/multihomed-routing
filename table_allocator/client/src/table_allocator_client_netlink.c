@@ -4,11 +4,72 @@
 #include <linux/rtnetlink.h>
 #include <linux/netlink.h>
 #include <linux/if_addr.h>
+#include <linux/fib_rules.h>
 
 #include <table_allocator_shared_log.h>
 
 #include "table_allocator_client_netlink.h"
 #include "table_allocator_client.h"
+
+static int32_t table_allocator_client_netlink_modify_rule(struct tac_ctx *ctx,
+        uint32_t msg_type, uint32_t flags, uint8_t dir, uint32_t prio)
+{
+    uint8_t buf[MNL_SOCKET_BUFFER_SIZE];
+    struct nlmsghdr *nlh;
+    struct rtmsg *rt;
+    union {
+        struct sockaddr_in *addr4;
+        struct sockaddr_in6 *addr6;
+    } u_addr;
+
+    memset(buf, 0, MNL_SOCKET_BUFFER_SIZE);
+
+    nlh = mnl_nlmsg_put_header(buf);
+    nlh->nlmsg_type = msg_type;
+    nlh->nlmsg_flags = NLM_F_REQUEST | flags;
+    nlh->nlmsg_seq = 0;
+
+    rt = mnl_nlmsg_put_extra_header(nlh, sizeof(struct rtmsg));
+    rt->rtm_family = ctx->address->addr_family;
+    rt->rtm_dst_len = 0;
+    rt->rtm_table = ctx->address->rt_table;
+    rt->rtm_protocol = RTPROT_BOOT;
+    rt->rtm_scope = RT_SCOPE_UNIVERSE;
+    rt->rtm_type = RTN_UNICAST;
+    
+    mnl_attr_put_u32(nlh, FRA_PRIORITY, prio);
+
+    if (dir == FRA_SRC) {
+        rt->rtm_src_len = ctx->address->subnet_prefix_len;
+    } else if (dir == FRA_DST) {
+        rt->rtm_dst_len = ctx->address->subnet_prefix_len;
+    }
+
+    if (rt->rtm_src_len || rt->rtm_dst_len) {
+        if (ctx->address->addr_family == AF_INET) {
+            u_addr.addr4 = (struct sockaddr_in*) &(ctx->address->addr);
+            mnl_attr_put_u32(nlh, dir, u_addr.addr4->sin_addr.s_addr);
+        } else {
+            u_addr.addr6 = (struct sockaddr_in6*) &(ctx->address->addr);
+            mnl_attr_put(nlh, dir, sizeof(u_addr.addr6->sin6_addr.s6_addr),
+                    u_addr.addr6->sin6_addr.s6_addr);
+        }
+    }
+
+    if (ctx->address->ifname[0]) {
+        mnl_attr_put_strz(nlh, FRA_IFNAME, ctx->address->ifname);
+    }
+#if 0
+    if(mnl_socket_sendto(multi_link_nl_set, nlh, nlh->nlmsg_len) < 0){
+        MULTI_DEBUG_PRINT_SYSLOG(stderr,"Could not send rule to kernel "
+                "(can be ignored if caused by an interface that went down, "
+                "iface idx %u)\n", li->ifi_idx);
+        return -1;
+    }
+#endif
+    return 0;
+
+}
 
 static int table_allocator_client_netlink_parse_nlattr(
         const struct nlattr *attr, void *data)
@@ -212,4 +273,3 @@ void table_allocator_client_netlink_stop(struct tac_ctx *ctx)
     uv_udp_recv_stop(&(ctx->netlink_handle));
     mnl_socket_close(ctx->rt_mnl_socket);
 }
-

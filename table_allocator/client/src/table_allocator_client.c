@@ -499,7 +499,8 @@ int main(int argc, char *argv[])
 
     ctx->request_timeout_handle.data = ctx;
 
-    if (!table_allocator_client_netlink_configure(ctx)) {
+    if (ctx->address->addr_family == AF_INET &&
+            !table_allocator_client_netlink_configure(ctx)) {
         TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Netlink init failed\n");
         free_ctx(ctx);
 		exit(EXIT_FAILURE);
