@@ -104,7 +104,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //start running as daemon
     //todo: add some error handling or just fail?
-    if (!ctx->daemonized && daemon(0, 0)) {
+    if (!ctx->daemonized && ctx->daemonize && daemon(0, 0)) {
         TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to daemonize client");
         exit(EXIT_FAILURE);
     }
@@ -246,6 +246,7 @@ static void usage()
     fprintf(stdout, "\t-t/--tag: optional tag to send to server\n");
     fprintf(stdout, "\t-r/--release: set command to release instead of request\n");
     fprintf(stdout, "\t-d/--destination: Path to server socket <r>\n");
+    fprintf(stdout, "\t-f/--foreground: Run application in foreground\n");
     fprintf(stdout, "\t-h/--help: this information\n");
 }
 
@@ -263,11 +264,12 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         {"tag", required_argument, NULL, 't'},
         {"release", no_argument, NULL, 'r'},
         {"destination", required_argument, NULL, 'd'},
+        {"foreground", required_argument, NULL, 'f'},
         {"help", no_argument, NULL, 'h'},
     };
 
     while (1) {
-        opt = getopt_long(argc, argv, "46sl:a:i:t:d:r:h", options, &option_index);
+        opt = getopt_long(argc, argv, "46sl:a:i:t:d:r:fh", options, &option_index);
 
         if (opt == -1)
             break;
@@ -299,6 +301,9 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             break;
         case 'd':
             destination = optarg;
+            break;
+        case 'f':
+            ctx->daemonize = 0;
             break;
         case 'h':
         default:
@@ -393,6 +398,7 @@ int main(int argc, char *argv[])
     ctx->logfile = stderr;
     ctx->addr_family = AF_UNSPEC;
     ctx->cmd = TA_SHARED_CMD_REQ;
+    ctx->daemonize = 1;
 
     if (!parse_cmd_args(ctx, argc, argv)) {
         free(ctx);
