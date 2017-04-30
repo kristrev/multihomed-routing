@@ -23,10 +23,14 @@ static int table_allocator_client_netlink_parse_nlattr(
     return MNL_CB_OK;
 }
 
-static void table_allocator_client_netlink_handle_dellink(struct tac_ctx *ctx,
+static uint8_t table_allocator_client_netlink_handle_dellink(struct tac_ctx *ctx,
         struct nlmsghdr *nl_hdr)
 {
+    struct tac_address *address = ctx->address;
+    struct ifinfomsg *ifi_msg = (struct ifinfomsg*)
+        mnl_nlmsg_get_payload(nl_hdr);
 
+    return ifi_msg->ifi_index == address->ifidx;
 }
 
 static uint8_t table_allocator_client_netlink_cmp_ip6addr(struct in6_addr *a,
@@ -42,7 +46,7 @@ static uint8_t table_allocator_client_netlink_handle_deladdr(
         struct tac_ctx *ctx, struct nlmsghdr *nl_hdr)
 {
     struct tac_address *address = ctx->address;
-    struct ifaddrmsg *if_msg = (struct ifaddrmsg*)
+    struct ifaddrmsg *ifa_msg = (struct ifaddrmsg*)
         mnl_nlmsg_get_payload(nl_hdr);
     const struct nlattr *tb[IFA_MAX + 1] = {};
     struct nlattr_storage tb_storage = {tb, IFA_MAX};
@@ -66,20 +70,20 @@ static uint8_t table_allocator_client_netlink_handle_deladdr(
         return 0;
     }
 
-    if (if_msg->ifa_index != address->ifidx ||
-        if_msg->ifa_family != address->addr_family ||
-        if_msg->ifa_prefixlen != address->subnet_prefix_len) {
+    if (ifa_msg->ifa_index != address->ifidx ||
+        ifa_msg->ifa_family != address->addr_family ||
+        ifa_msg->ifa_prefixlen != address->subnet_prefix_len) {
         return 0;
     }
 
-    if (if_msg->ifa_family == AF_INET && tb[IFA_LOCAL]) {
+    if (ifa_msg->ifa_family == AF_INET && tb[IFA_LOCAL]) {
         u_sockaddr.sockaddr4 = (struct sockaddr_in*) &(address->addr);
         u_addr.addr4.s_addr = mnl_attr_get_u32(tb[IFA_LOCAL]); 
 
         if (u_addr.addr4.s_addr != u_sockaddr.sockaddr4->sin_addr.s_addr) {
             return 0;
         }
-    } else if (if_msg->ifa_family == AF_INET6 && tb[IFA_ADDRESS]) {
+    } else if (ifa_msg->ifa_family == AF_INET6 && tb[IFA_ADDRESS]) {
         u_sockaddr.sockaddr6 = (struct sockaddr_in6*) &(address->addr);
         addr6_raw = (uint32_t*) mnl_attr_get_payload(tb[IFA_ADDRESS]);
 
@@ -117,7 +121,17 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
     while (mnl_nlmsg_ok(nl_hdr, numbytes)) {
         if (nl_hdr->nlmsg_type == RTM_DELLINK) {
             //todo: if this returns true, just stop
-            table_allocator_client_netlink_handle_dellink(ctx, nl_hdr);
+            if (table_allocator_client_netlink_handle_dellink(ctx, nl_hdr)) {
+                TA_PRINT_SYSLOG(ctx, LOG_DEBUG,
+                        "Will flush rules and stop after DELLINK "
+                        "(fam. %u if. %s addr, %s/%u)\n", address->addr_family,
+                        address->ifname, address->address_str,
+                        address->subnet_prefix_len);
+
+                //flush rules
+
+                uv_stop(&(ctx->event_loop));
+            }
         } else if (nl_hdr->nlmsg_type == RTM_DELADDR) {
             if (table_allocator_client_netlink_handle_deladdr(ctx, nl_hdr)) {
                 TA_PRINT_SYSLOG(ctx, LOG_DEBUG,
@@ -125,6 +139,9 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                         "(fam. %u if. %s addr, %s/%u)\n", address->addr_family,
                         address->ifname, address->address_str,
                         address->subnet_prefix_len);
+
+                //flush rules
+                uv_stop(&(ctx->event_loop));
             }
         }
 
@@ -186,3 +203,13 @@ uint8_t table_allocator_client_netlink_configure(struct tac_ctx *ctx)
 
     return 1;
 }
+
+void table_allocator_client_netlink_stop(struct tac_ctx *ctx)
+{
+    //todo: we should really do uv_clos here to make sure we shut down cleanly,
+    //but as long as this function is only used right before application exits,
+    //we don't really have to
+    uv_udp_recv_stop(&(ctx->netlink_handle));
+    mnl_socket_close(ctx->rt_mnl_socket);
+}
+

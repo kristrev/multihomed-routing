@@ -239,7 +239,13 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
 
 static void free_ctx(struct tac_ctx *ctx)
 {
+    if (ctx->rt_mnl_socket) {
+        table_allocator_client_netlink_stop(ctx);
+    }
+
 	uv_loop_close(&(ctx->event_loop));
+
+    free(ctx->mnl_recv_buf);
     free(ctx->address);
 	free(ctx);
 }
