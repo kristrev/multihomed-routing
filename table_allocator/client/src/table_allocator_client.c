@@ -11,6 +11,7 @@
 #include <time.h>
 
 #include "table_allocator_client.h"
+#include "table_allocator_client_netlink.h"
 
 #include <table_allocator_shared_json.h>
 #include <table_allocator_shared_log.h>
@@ -55,6 +56,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
     struct tac_ctx *ctx = handle->data;
+    struct tac_address *address = ctx->address;
     uint8_t ver, cmd;
     const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
     struct timespec tv_now;
@@ -77,7 +79,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //parse json
     if (!tables_allocator_shared_json_parse_client_reply(buf->base,
-                &ver, &cmd, &(ctx->rt_table), &(ctx->lease_expires))) {
+                &ver, &cmd, &(address->rt_table), &(address->lease_expires))) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to parse request from: %s\n",
                 un_addr->sun_path + 1);
         return;
@@ -85,21 +87,22 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
 
     //check cmd and version
-    if (cmd != TA_SHARED_CMD_RESP || ver != TA_VERSION || !(ctx->rt_table)) {
+    if (cmd != TA_SHARED_CMD_RESP || ver != TA_VERSION ||
+            !(address->rt_table)) {
         uv_timer_start(&(ctx->request_timeout_handle),
                 client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0);
         return;
     }
 
     TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server %s Table %u Lease %u\n",
-            un_addr->sun_path + 1, ctx->rt_table, ctx->lease_expires);
+            un_addr->sun_path + 1, address->rt_table, address->lease_expires);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &tv_now);
     //todo: guard this better
-    tdiff = ctx->lease_expires - tv_now.tv_sec;
+    tdiff = address->lease_expires - tv_now.tv_sec;
 
     //write table
-    printf("%u\n", ctx->rt_table);
+    printf("%u\n", address->rt_table);
     fflush(stdout);
 
     //start running as daemon
@@ -123,14 +126,15 @@ static void client_request_timeout_handle_cb(uv_timer_t *handle)
 
 static void table_allocator_client_send_request(struct tac_ctx *ctx)
 {
+    struct tac_address *address = ctx->address;
 	struct sockaddr_un remote_addr;
     //this is just a test until we have config files in place
     int32_t retval = -1, sock_fd;
     struct json_object *req_obj = NULL;
     const char *json_str;
     
-    req_obj = table_allocator_shared_json_create_req(ctx->address, ctx->ifname,
-            ctx->tag, ctx->addr_family, ctx->cmd);
+    req_obj = table_allocator_shared_json_create_req(address->address_str,
+            address->ifname, address->tag, address->addr_family, ctx->cmd);
 
     if (!req_obj) {
         if (uv_timer_start(&(ctx->request_timeout_handle),
@@ -141,7 +145,8 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
 	    }
 
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to create request json for "
-                "%s-%s-%u\n", ctx->ifname, ctx->address, ctx->addr_family);
+                "%s-%s-%u\n", address->ifname, address->address_str,
+                address->addr_family);
         return;
     }
 
@@ -155,7 +160,8 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     remote_addr.sun_family = AF_UNIX;
 
     //we use abstract naming, so first byte of path is always \0
-    strncpy(remote_addr.sun_path + 1, ctx->destination, strlen(ctx->destination));
+    strncpy(remote_addr.sun_path + 1, ctx->destination,
+            strlen(ctx->destination));
 	uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd);
 
     //todo: I need to use sendto, it seems the diffrent send-methods in libuv
@@ -177,7 +183,8 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     //always start retransmission timer, independent of success of failure
     //timer will be updated in the different handler functions
     if (uv_timer_start(&(ctx->request_timeout_handle),
-                client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0)) {
+                client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS,
+                0)) {
         TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Can't start request timer\n");
 		exit(EXIT_FAILURE);
 	}
@@ -189,6 +196,7 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
     int32_t sock_fd = -1;
     uint8_t success = 1;
     struct tac_ctx *ctx = handle->data;
+    struct tac_address *address = ctx->address;
     //format is ifname-addr-family. The space for the two "-" comes for free via
     //the additional byte in IFNAMSIZE and INET6_ADDRSTRLEN, family is maximum
     //two digits (IPv6 is 10)
@@ -197,7 +205,8 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
     if (uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd)
             == UV_EBADF) {
         snprintf(unix_socket_addr, sizeof(unix_socket_addr),
-                "%s-%s-%u", ctx->ifname, ctx->address, ctx->addr_family);
+                "%s-%s-%u", address->ifname, address->address_str,
+                address->addr_family);
 
         //path will be read from config, stored in ctx
         sock_fd = ta_socket_helpers_create_unix_socket(unix_socket_addr);
@@ -230,6 +239,7 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
 static void free_ctx(struct tac_ctx *ctx)
 {
 	uv_loop_close(&(ctx->event_loop));
+    free(ctx->address);
 	free(ctx);
 }
 
@@ -276,10 +286,10 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         
         switch (opt) {
         case '4':
-            ctx->addr_family = AF_INET;
+            ctx->address->addr_family = AF_INET;
             break;
         case '6':
-            ctx->addr_family = AF_INET6;
+            ctx->address->addr_family = AF_INET6;
             break;
         case 's':
             ctx->use_syslog = 1;
@@ -324,7 +334,7 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
                     TA_SHARED_MAX_TAG_SIZE - 1);
             return 0;
         } else {
-            memcpy(ctx->tag, tag, strlen(tag));
+            memcpy(ctx->address->tag, tag, strlen(tag));
         }
     }
 
@@ -333,7 +343,7 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
                 IFNAMSIZ - 1);
         return 0;
     } else {
-        memcpy(ctx->ifname, ifname, strlen(ifname));
+        memcpy(ctx->address->ifname, ifname, strlen(ifname));
     }
 
     if (strlen(destination) >= TA_SHARED_MAX_ADDR_SIZE) {
@@ -344,19 +354,19 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
         memcpy(ctx->destination, destination, strlen(destination));
     }
 
-    if (ctx->addr_family == AF_INET) {
+    if (ctx->address->addr_family == AF_INET) {
         if (!inet_pton(AF_INET, address, &addr_tmp)) {
             fprintf(stderr, "Address is not valid: %s\n", address);
             return 0;
         } else {
-            memcpy(ctx->address, address, strlen(address));
+            memcpy(ctx->address->address_str, address, strlen(address));
         }
-    } else if (ctx->addr_family == AF_INET6) {
+    } else if (ctx->address->addr_family == AF_INET6) {
         if (!inet_pton(AF_INET6, address, &addr_tmp)) {
             fprintf(stderr, "Address is not valid: %s\n", address);
             return 0;
         } else {
-            memcpy(ctx->address, address, strlen(address));
+            memcpy(ctx->address->address_str, address, strlen(address));
         }
     } else {
         if (strlen(address) >= INET6_ADDRSTRLEN) {
@@ -364,7 +374,7 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
                     INET6_ADDRSTRLEN - 1);
             return 0;
         } else {
-            memcpy(ctx->address, address, strlen(address));
+            memcpy(ctx->address->address_str, address, strlen(address));
         }
     }
 
@@ -389,14 +399,28 @@ int main(int argc, char *argv[])
     ctx = calloc(sizeof(struct tac_ctx), 1);
 
     if (!ctx) {
-        fprintf(stderr, "Failed to create context\n");
+        TA_PRINT(stderr, "Allocating memory for context failed\n");
         exit(EXIT_FAILURE);
     }
- 
+
+    ctx->mnl_recv_buf = calloc(MNL_SOCKET_BUFFER_SIZE, 1);
+
+    if (!ctx->mnl_recv_buf) {
+        TA_PRINT(stderr, "Allocating memory for mnl recv buf failed\n");
+        exit(EXIT_FAILURE);
+    }
+
+    ctx->address = calloc(sizeof(struct tac_address), 1);
+
+    if (!ctx->address) {
+        TA_PRINT(stderr, "Allocating memory for address failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     //set default values for context
     ctx->use_syslog = 0;
     ctx->logfile = stderr;
-    ctx->addr_family = AF_UNSPEC;
+    ctx->address->addr_family = AF_UNSPEC;
     ctx->cmd = TA_SHARED_CMD_REQ;
     ctx->daemonize = 1;
 
@@ -427,6 +451,12 @@ int main(int argc, char *argv[])
 	}
 
     ctx->request_timeout_handle.data = ctx;
+
+    if (!table_allocator_client_netlink_configure(ctx)) {
+        TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Netlink init failed\n");
+        free_ctx(ctx);
+		exit(EXIT_FAILURE);
+    }
 
     TA_PRINT_SYSLOG(ctx, LOG_INFO, "Started allocator client\n");
 
