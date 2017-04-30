@@ -270,16 +270,7 @@ static void usage()
 
 static uint8_t compute_prefix_len_4(struct in_addr *netmask)
 {
-    uint8_t i;
-    uint8_t prefix_len = 0;
-
-    for (i = 0; i < 32; i++) {
-        if (netmask->s_addr >> i & 0x1) {
-            prefix_len++;
-        }
-    }
-
-    return prefix_len;
+    return 32 - (ffs(ntohl(netmask->s_addr)) - 1);
 }
 
 static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
@@ -416,6 +407,7 @@ static uint8_t parse_cmd_args(struct tac_ctx *ctx, int argc, char *argv[])
             return 0;
         }
 
+        //todo: find out how prefix len is passed to dhcp
         memcpy(ctx->address->address_str, address, strlen(address));
     } else {
         if (strlen(address) >= INET6_ADDRSTRLEN) {
