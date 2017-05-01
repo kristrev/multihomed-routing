@@ -18,7 +18,7 @@ set(SOURCE
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Kristian Evensen <kristian.evensen@gmail.com>")
-set(CPACK_DEBIAN_PACKAGE_NAME "table_allocator_client")
+set(CPACK_DEBIAN_PACKAGE_NAME "table-allocator-client")
 set(CPACK_DEBIAN_PACKAGE_VERSION "0.1-1")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv1, libjson-c3, libmnl0")

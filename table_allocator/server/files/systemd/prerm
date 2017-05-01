@@ -1,0 +1,4 @@
+#!/bin/bash
+
+systemctl stop table-allocator-server
+systemctl disable table-allocator-server

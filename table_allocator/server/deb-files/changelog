@@ -1,0 +1,5 @@
+table-allocator-server (0.1-1) unstable; urgency=low
+
+  * Initial release. Commit 3b25b71dbe69c8ff110a5cb69231fe3991faa1fc.
+
+ -- Kristian Evensen <kristrev@kristrev-ThinkPad-X1-Carbon-2nd>  Mon, 01 May  2017 15:58:36 +0200

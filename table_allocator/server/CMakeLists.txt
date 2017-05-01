@@ -20,11 +20,16 @@ set(SOURCE
 
 set(CPACK_GENERATOR "DEB")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Kristian Evensen <kristian.evensen@gmail.com>")
-set(CPACK_DEBIAN_PACKAGE_NAME "table_allocator_server")
+set(CPACK_DEBIAN_PACKAGE_NAME "table-allocator-server")
 set(CPACK_DEBIAN_PACKAGE_VERSION "0.1-1")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv1, libjson-c3, libsqlite3-0")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "This package contains the Table Allocator Server, for use together with the table allocator client. The purpose of this tool is to distribute and keep track of routing tables on multihomed hosts. Clients will request tables using a basic, well-defined protocols and are then required to refresh them at some configurable interval. The server will free any dead table leases.")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+    "${CMAKE_CURRENT_SOURCE_DIR}/deb-files/conffiles;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deb-files/changelog;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/files/systemd/postinst;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/files/systemd/prerm;")
 INCLUDE(CPack)
 
 #required for individual builds
@@ -41,3 +46,10 @@ target_link_libraries(${PROJECT_NAME} ${LIBUV_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${LIBSQLITE3_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${LIBJSON_LIBRARY})
 install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION sbin)
+install(FILES ${PROJECT_SOURCE_DIR}/files/server_config.json DESTINATION
+            /etc/ PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+            RENAME table_allocator_server_config.json)
+install(FILES ${PROJECT_SOURCE_DIR}/files/systemd/table-allocator-server.service DESTINATION
+            /lib/systemd/system/ PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+            RENAME table-allocator-server.service)
+

@@ -1,0 +1,11 @@
+[Install]
+WantedBy=multi-user.target
+
+[Unit]
+Description=Table Allocator Server
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/table_allocator_server -c /etc/table_allocator_server_config.json
+Type=simple
+Restart=on-failure
