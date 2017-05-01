@@ -96,8 +96,8 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         return;
     }
 
-    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server %s Table %u Lease %u. Ifname: %s "
-                "address %s family %u table %u\n",
+    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server: %s Table: %u Lease: %u Ifname: %s "
+                "Address: %s Family: %u Table: %u\n",
                 un_addr->sun_path + 1, address->rt_table,
                 address->lease_expires, ctx->address->ifname,
                 ctx->address->address_str, ctx->address->addr_family,

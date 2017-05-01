@@ -85,7 +85,7 @@ void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
 
     if (retval < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
-                "address %s family %u table %u type %u\n",
+                "Address: %s Family: %u Table: %u Type: %u\n",
                 ctx->address->ifname, ctx->address->address_str,
                 ctx->address->addr_family, ctx->address->rt_table, msg_type);
 
@@ -105,7 +105,7 @@ void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
 
     if (retval < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
-                "address %s family %u table %u type %u\n",
+                "Address: %s Family: %u Table: %u Type: %u\n",
                 ctx->address->ifname, ctx->address->address_str,
                 ctx->address->addr_family, ctx->address->rt_table, msg_type);
 
@@ -122,7 +122,7 @@ void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
 
     if (retval < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
-                "address %s family %u table %u type %u\n",
+                "Address: %s Family: %u Table: %u Type: %u\n",
                 ctx->address->ifname, ctx->address->address_str,
                 ctx->address->addr_family, ctx->address->rt_table, msg_type);
 
@@ -132,8 +132,8 @@ void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
                     TAC_NETLINK_TIMEOUT_MS, 0);
         }
     } else {
-        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Updated rules for ifname: %s "
-                "address %s family %u table %u type %u\n",
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Updated rules. Ifname: %s "
+                "Address: %s Family: %u Table: %u Type: %u\n",
                 ctx->address->ifname, ctx->address->address_str,
                 ctx->address->addr_family, ctx->address->rt_table, msg_type);
 
