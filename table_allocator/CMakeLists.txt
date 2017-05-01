@@ -5,6 +5,6 @@ set (PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/shared/include)
 
 include_directories("${PROJECT_INCLUDE_DIR}")
 
-add_subdirectory(shared)
+#add_subdirectory(shared)
 add_subdirectory(server)
 add_subdirectory(client)
