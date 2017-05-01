@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <net/if.h>
+#include <linux/fib_rules.h>
 
 #include "table_allocator_client.h"
 #include "table_allocator_client_netlink.h"
@@ -95,8 +96,12 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         return;
     }
 
-    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server %s Table %u Lease %u\n",
-            un_addr->sun_path + 1, address->rt_table, address->lease_expires);
+    TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server %s Table %u Lease %u. Ifname: %s "
+                "address %s family %u table %u\n",
+                un_addr->sun_path + 1, address->rt_table,
+                address->lease_expires, ctx->address->ifname,
+                ctx->address->address_str, ctx->address->addr_family,
+                ctx->address->rt_table);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &tv_now);
     //todo: guard this better
@@ -112,6 +117,9 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT_SYSLOG(ctx, LOG_CRIT, "Failed to daemonize client");
         exit(EXIT_FAILURE);
     }
+
+    //add rules
+    table_allocator_client_netlink_update_rules(ctx, RTM_NEWRULE);
 
     ctx->daemonized = 1;
     //start request timeout again

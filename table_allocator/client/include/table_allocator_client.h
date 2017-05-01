@@ -25,6 +25,7 @@ struct tac_address {
     uint8_t subnet_prefix_len;
     //read from command line
     uint8_t addr_family;
+    uint8_t rules_added;
     char ifname[IFNAMSIZ];
     char address_str[INET6_ADDRSTRLEN];
     char tag[TA_SHARED_MAX_TAG_SIZE];
@@ -36,6 +37,7 @@ struct tac_ctx {
     uv_udp_t netlink_handle;
 	uv_timer_t unix_socket_timeout_handle;
 	uv_timer_t request_timeout_handle;
+	uv_timer_t netlink_timeout_handle;
     struct mnl_socket *rt_mnl_socket;
     FILE *logfile;
     struct tac_address *address;

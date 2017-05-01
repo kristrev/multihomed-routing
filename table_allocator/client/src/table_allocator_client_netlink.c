@@ -12,7 +12,8 @@
 #include "table_allocator_client.h"
 
 static int32_t table_allocator_client_netlink_modify_rule(struct tac_ctx *ctx,
-        uint32_t msg_type, uint32_t flags, uint8_t dir, uint32_t prio)
+        uint32_t msg_type, uint32_t flags, uint8_t prefix_len, uint8_t dir,
+        uint32_t prio, const char *ifname)
 {
     uint8_t buf[MNL_SOCKET_BUFFER_SIZE];
     struct nlmsghdr *nlh;
@@ -38,11 +39,12 @@ static int32_t table_allocator_client_netlink_modify_rule(struct tac_ctx *ctx,
     rt->rtm_type = RTN_UNICAST;
     
     mnl_attr_put_u32(nlh, FRA_PRIORITY, prio);
+    mnl_attr_put_u32(nlh, FRA_TABLE, ctx->address->rt_table);
 
     if (dir == FRA_SRC) {
-        rt->rtm_src_len = ctx->address->subnet_prefix_len;
+        rt->rtm_src_len = prefix_len;
     } else if (dir == FRA_DST) {
-        rt->rtm_dst_len = ctx->address->subnet_prefix_len;
+        rt->rtm_dst_len = prefix_len;
     }
 
     if (rt->rtm_src_len || rt->rtm_dst_len) {
@@ -56,20 +58,88 @@ static int32_t table_allocator_client_netlink_modify_rule(struct tac_ctx *ctx,
         }
     }
 
-    if (ctx->address->ifname[0]) {
-        mnl_attr_put_strz(nlh, FRA_IFNAME, ctx->address->ifname);
+    if (ifname) {
+        mnl_attr_put_strz(nlh, FRA_IFNAME, ifname);
     }
-#if 0
-    if(mnl_socket_sendto(multi_link_nl_set, nlh, nlh->nlmsg_len) < 0){
-        MULTI_DEBUG_PRINT_SYSLOG(stderr,"Could not send rule to kernel "
-                "(can be ignored if caused by an interface that went down, "
-                "iface idx %u)\n", li->ifi_idx);
-        return -1;
-    }
-#endif
-    return 0;
 
+    return mnl_socket_sendto(ctx->rt_mnl_socket, nlh, nlh->nlmsg_len);
 }
+
+static void table_allocator_client_netlink_timeout_cb(uv_timer_t *handle)
+{
+    struct tac_ctx *ctx = handle->data;
+
+    //we might have partial failures, causing update_rules to be called multiple
+    //times when adding rules. This is not critical, if a rule is equal to an
+    //existent rule then it will not be added
+    table_allocator_client_netlink_update_rules(ctx, RTM_NEWRULE);
+}
+
+void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
+        uint32_t msg_type)
+{
+    int32_t retval = 0;
+
+    retval = table_allocator_client_netlink_modify_rule(ctx, msg_type,
+            NLM_F_CREATE | NLM_F_EXCL, 32, FRA_SRC, ADDR_RULE_PRIO, NULL);
+
+    if (retval < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
+                "address %s family %u table %u type %u\n",
+                ctx->address->ifname, ctx->address->address_str,
+                ctx->address->addr_family, ctx->address->rt_table, msg_type);
+
+        //only start timeout on newrule, deleting rule when interface goes down
+        //is a best-effort thing
+        if (msg_type == RTM_NEWRULE) {
+            uv_timer_start(&(ctx->netlink_timeout_handle),
+                    table_allocator_client_netlink_timeout_cb,
+                    TAC_NETLINK_TIMEOUT_MS, 0);
+        }
+        return;
+    }
+
+    retval = table_allocator_client_netlink_modify_rule(ctx, msg_type,
+            NLM_F_CREATE | NLM_F_EXCL, ctx->address->subnet_prefix_len,
+            FRA_DST, NW_RULE_PRIO, NULL);
+
+    if (retval < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
+                "address %s family %u table %u type %u\n",
+                ctx->address->ifname, ctx->address->address_str,
+                ctx->address->addr_family, ctx->address->rt_table, msg_type);
+
+        if (msg_type == RTM_NEWRULE) {
+            uv_timer_start(&(ctx->netlink_timeout_handle),
+                    table_allocator_client_netlink_timeout_cb,
+                    TAC_NETLINK_TIMEOUT_MS, 0);
+        }
+        return;
+    }
+
+    retval = table_allocator_client_netlink_modify_rule(ctx, msg_type,
+            NLM_F_CREATE | NLM_F_EXCL, 0, FRA_DST, DEF_RULE_PRIO, "lo");
+
+    if (retval < 0) {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Failed to update rules. Ifname: %s "
+                "address %s family %u table %u type %u\n",
+                ctx->address->ifname, ctx->address->address_str,
+                ctx->address->addr_family, ctx->address->rt_table, msg_type);
+
+        if (msg_type == RTM_NEWRULE) {
+            uv_timer_start(&(ctx->netlink_timeout_handle),
+                    table_allocator_client_netlink_timeout_cb,
+                    TAC_NETLINK_TIMEOUT_MS, 0);
+        }
+    } else {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Updated rules for ifname: %s "
+                "address %s family %u table %u type %u\n",
+                ctx->address->ifname, ctx->address->address_str,
+                ctx->address->addr_family, ctx->address->rt_table, msg_type);
+
+        ctx->address->rules_added = 1;
+    }
+};
 
 static int table_allocator_client_netlink_parse_nlattr(
         const struct nlattr *attr, void *data)
@@ -190,7 +260,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                         address->subnet_prefix_len);
 
                 //flush rules
-
+                table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
                 uv_stop(&(ctx->event_loop));
             }
         } else if (nl_hdr->nlmsg_type == RTM_DELADDR) {
@@ -202,6 +272,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                         address->subnet_prefix_len);
 
                 //flush rules
+                table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
                 uv_stop(&(ctx->event_loop));
             }
         }
@@ -239,6 +310,14 @@ uint8_t table_allocator_client_netlink_configure(struct tac_ctx *ctx)
     }
 
     ctx->rt_mnl_socket = mnl_sock;
+
+    if (uv_timer_init(&(ctx->event_loop), &(ctx->netlink_timeout_handle))) {
+        TA_PRINT(stderr, "Initializing netlink timer failed\n");
+        mnl_socket_close(mnl_sock);
+        return 0;
+    }
+
+    ctx->netlink_timeout_handle.data = ctx;
 
     if (uv_udp_init(&(ctx->event_loop), &(ctx->netlink_handle))) {
         TA_PRINT(stderr, "Intializing netlink udp handle failed\n");
