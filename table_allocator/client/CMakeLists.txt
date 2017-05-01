@@ -21,16 +21,8 @@ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Kristian Evensen <kristian.evensen@gmail.co
 set(CPACK_DEBIAN_PACKAGE_NAME "table_allocator_client")
 set(CPACK_DEBIAN_PACKAGE_VERSION "0.1-1")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv libjson-c3 libmnl0")
-set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Table Allocator Client is a tool aimed to
-simplify the configuration of multihomed hosts, and must be used together with
-the Table Allocator Server. When started, the client will request a table lease
-from the Table Allocator Server. After the table lease has been acquired, the
-table will be written to stdout and the tool (by default) will move to the
-background. The reason for writing the table is so that routes easily can be
-added or moved to the correct table in for example an ifup script or
-dhclient-hook. The client tool takes care of adding and removing the required ip
-rules (rules removed when either address or interface is removed).")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv1, libjson-c3, libmnl0")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "Table Allocator Client is a tool aimed to simplify the configuration of multihomed hosts, and must be used together with the Table Allocator Server. When started, the client will request a table lease from the Table Allocator Server. After the table lease has been acquired, the table will be written to stdout and the tool (by default) will move to the background. The reason for writing the table is so that routes easily can be added or moved to the correct table in for example an ifup script or dhclient-hook. The client tool takes care of adding and removing the required ip rules (rules removed when either address or interface is removed).")
 INCLUDE(CPack)
 
 if(NOT TARGET table_allocator_shared)
@@ -45,4 +37,4 @@ target_link_libraries(${PROJECT_NAME} table_allocator_shared)
 target_link_libraries(${PROJECT_NAME} ${LIBUV_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${LIBJSON_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${LIBMNL_LIBRARY})
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION usr/sbin)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION sbin)
