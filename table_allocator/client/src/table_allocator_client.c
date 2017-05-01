@@ -24,9 +24,19 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx);
 static void unix_socket_timeout_cb(uv_timer_t *handle);
 static void client_request_timeout_handle_cb(uv_timer_t *handle);
 
+//generic close callback used then exiting application
+static void table_allocator_client_close_cb(uv_handle_t *handle)
+{
+    //don't do anything, we have no per. handle memory to free
+}
+
 static void unix_socket_handle_close_cb(uv_handle_t *handle)
 {
     struct tac_ctx *ctx = handle->data;
+
+    if (ctx->closing) {
+        return;
+    }
 
     //todo: error checks
     uv_udp_init(&(ctx->event_loop), &(ctx->unix_socket_handle));
@@ -66,7 +76,9 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //rearm send timer
     //todo: look at error handling here, if I have missed something
-    if (nread == 0) {
+    if (ctx->closing) {
+        return;
+    } else if (nread == 0) {
         return;
     } else if (flags & UV_UDP_PARTIAL) {
         uv_timer_start(&(ctx->request_timeout_handle),
@@ -211,6 +223,10 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
     //two digits (IPv6 is 10)
     char unix_socket_addr[IFNAMSIZ + INET6_ADDRSTRLEN + 3];
 
+    if (ctx->closing) {
+        return;
+    }
+
     if (uv_fileno((const uv_handle_t*) &(ctx->unix_socket_handle), &sock_fd)
             == UV_EBADF) {
         snprintf(unix_socket_addr, sizeof(unix_socket_addr),
@@ -247,12 +263,32 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
 
 static void free_ctx(struct tac_ctx *ctx)
 {
+    ctx->closing = 1;
+
     if (ctx->rt_mnl_socket) {
         table_allocator_client_netlink_stop(ctx);
     }
 
+    uv_timer_stop(&(ctx->unix_socket_timeout_handle));
+    uv_timer_stop(&(ctx->request_timeout_handle));
+    uv_timer_stop(&(ctx->netlink_timeout_handle));
+
+    uv_close((uv_handle_t*) &(ctx->unix_socket_timeout_handle),
+            table_allocator_client_close_cb);
+    uv_close((uv_handle_t*) &(ctx->request_timeout_handle),
+            table_allocator_client_close_cb);
+    uv_close((uv_handle_t*) &(ctx->netlink_timeout_handle),
+            table_allocator_client_close_cb);
+
+    uv_close((uv_handle_t*) &(ctx->unix_socket_handle),
+            table_allocator_client_close_cb);
+    uv_close((uv_handle_t*) &(ctx->netlink_handle),
+            table_allocator_client_close_cb);
+
+    uv_run(&(ctx->event_loop), UV_RUN_ONCE);
 	uv_loop_close(&(ctx->event_loop));
 
+    mnl_socket_close(ctx->rt_mnl_socket);
     free(ctx->mnl_recv_buf);
     free(ctx->address);
 	free(ctx);

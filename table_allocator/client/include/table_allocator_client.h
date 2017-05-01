@@ -49,6 +49,7 @@ struct tac_ctx {
     uint8_t cmd;
     uint8_t daemonize;
     uint8_t daemonized;
+    uint8_t closing;
 };
 
 #endif

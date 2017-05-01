@@ -242,7 +242,9 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
     //this cast is to prevent getting compilation warnings on mnl_nlmsg_next
     int32_t numbytes = (int32_t) nread;
 
-    if (nread == 0) {
+    if (ctx->closing) {
+        return;
+    } else if (nread == 0) {
         return;
     } else if (nread < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Netlink socket read error\n");
@@ -262,6 +264,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                 //flush rules
                 table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
                 uv_stop(&(ctx->event_loop));
+                ctx->closing = 1;
             }
         } else if (nl_hdr->nlmsg_type == RTM_DELADDR) {
             if (table_allocator_client_netlink_handle_deladdr(ctx, nl_hdr)) {
@@ -274,6 +277,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                 //flush rules
                 table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
                 uv_stop(&(ctx->event_loop));
+                ctx->closing = 1;
             }
         }
 
@@ -350,5 +354,4 @@ void table_allocator_client_netlink_stop(struct tac_ctx *ctx)
     //but as long as this function is only used right before application exits,
     //we don't really have to
     uv_udp_recv_stop(&(ctx->netlink_handle));
-    mnl_socket_close(ctx->rt_mnl_socket);
 }
