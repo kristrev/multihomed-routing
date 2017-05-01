@@ -24,13 +24,21 @@ set(CPACK_DEBIAN_PACKAGE_NAME "table_allocator_server")
 set(CPACK_DEBIAN_PACKAGE_VERSION "0.1-1")
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "libuv libjson-c3 libsqlite3-0")
+set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "This package contains the Table Allocator
+Server, for use together with the table allocator client. The purpose of this
+tool is to distribute and keep track of routing tables on multihomed hosts.
+Clients will request tables using a basic, well-defined protocols and are then
+required to refresh them at some configurable interval. The server will free any
+dead table leases.")
 INCLUDE(CPack)
 
+#required for individual builds
 if(NOT TARGET table_allocator_shared)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../shared
         ${CMAKE_CURRENT_BINARY_DIR}/shared)
     include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../shared/include")
 endif()
+
 include_directories("${PROJECT_INCLUDE_DIR}")
 add_executable(${PROJECT_NAME} ${SOURCE})
 target_link_libraries(${PROJECT_NAME} table_allocator_shared)
