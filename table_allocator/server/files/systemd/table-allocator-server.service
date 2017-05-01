@@ -1,9 +1,9 @@
 [Install]
-WantedBy=multi-user.target
+WantedBy=network.target
 
 [Unit]
 Description=Table Allocator Server
-After=network.target
+Before=network.target
 
 [Service]
 ExecStart=/usr/sbin/table_allocator_server -c /etc/table_allocator_server_config.json
