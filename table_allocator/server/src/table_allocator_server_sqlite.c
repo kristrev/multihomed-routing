@@ -66,7 +66,7 @@ uint8_t table_allocator_sqlite_insert_table(struct tas_ctx *ctx,
         sqlite3_bind_text(ctx->insert_rt_table, 3, req->ifname,
             strlen(req->ifname), SQLITE_STATIC) ||
         sqlite3_bind_text(ctx->insert_rt_table, 4, req->address,
-            strlen(req->ifname), SQLITE_STATIC) ||
+            strlen(req->address), SQLITE_STATIC) ||
         sqlite3_bind_int(ctx->insert_rt_table, 5, lease_sec)) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to bind INSERT values\n");
         return 0;
@@ -101,7 +101,7 @@ uint32_t table_allocator_sqlite_get_table(struct tas_ctx *ctx,
         sqlite3_bind_text(ctx->select_rt_table, 2, req->ifname,
             strlen(req->ifname), SQLITE_STATIC) ||
         sqlite3_bind_text(ctx->select_rt_table, 3, req->address,
-            strlen(req->ifname), SQLITE_STATIC)) {
+            strlen(req->address), SQLITE_STATIC)) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to bind SELECT values\n");
         return 0;
     }
@@ -125,7 +125,7 @@ uint8_t table_allocator_sqlite_remove_table(struct tas_ctx *ctx,
         sqlite3_bind_text(ctx->delete_rt_table, 2, req->ifname,
             strlen(req->ifname), SQLITE_STATIC) ||
         sqlite3_bind_text(ctx->delete_rt_table, 3, req->address,
-            strlen(req->ifname), SQLITE_STATIC)) {
+            strlen(req->address), SQLITE_STATIC)) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to bind SELECT values\n");
         return 0;
     }

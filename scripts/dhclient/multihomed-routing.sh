@@ -7,35 +7,6 @@ ADDR_RULE_PREF=10000
 NW_RULE_PREF=20000
 LO_RULE_PREF=91000
 
-add_multihomed_rules()
-{
-    rt_table=$1
-
-    #set up new routing rules
-    ip -4 rule add from \
-        ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} \
-        pref ${ADDR_RULE_PREF} lookup ${rt_table}
-    ip -4 rule add from all to \
-        ${new_ip_address}${new_subnet_mask:+/$new_subnet_mask} pref \
-        ${NW_RULE_PREF} lookup ${rt_table}
-    ip -4 rule add from all iif lo lookup ${rt_table} pref \
-        ${LO_RULE_PREF}
-}
-
-delete_multihomed_rules()
-{
-    old_rt_table=$1
-
-    ip -4 rule delete from \
-       ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} \
-       pref ${ADDR_RULE_PREF} lookup ${old_rt_table}
-    ip -4 rule delete from all to \
-        ${old_ip_address}${old_subnet_mask:+/$old_subnet_mask} pref \
-        ${NW_RULE_PREF} lookup ${old_rt_table}
-    ip -4 rule delete from all iif lo lookup ${old_rt_table} pref \
-        ${LO_RULE_PREF}
-}
-
 update_addr_route()
 {
     rt_table=$1
@@ -50,10 +21,7 @@ update_addr_route()
 
 handle_bound_renew_rebind_reboot()
 {
-    #todo: need to read + release old table
-    #todo: need to allocate table here (could be merged with previous)
-    rt_table=100
-    old_rt_table=100
+    rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
 
     set_hostname
 
@@ -68,9 +36,6 @@ handle_bound_renew_rebind_reboot()
        [ "$old_ip_address" != "$new_ip_address" ]; then
             # leased IP has changed => flush it
             ip -4 addr flush dev ${interface} label ${interface}
-
-            #Delete our routing rules for this address
-            delete_multihomed_rules $old_rt_table
     fi
 
     if [ -z "$old_ip_address" ] ||
@@ -83,9 +48,6 @@ handle_bound_renew_rebind_reboot()
 
         #remove default address route and add it to the correct table
         update_addr_route $rt_table
-
-        #set up new routing rules
-        add_multihomed_rules $rt_table
 
         if [ -n "$new_interface_mtu" ]; then
             # set MTU
@@ -139,18 +101,6 @@ handle_bound_renew_rebind_reboot()
     unset reason
 }
 
-handle_expire_fail_release_stop()
-{
-    #todo: get + release old table
-    old_rt_table=100
-
-    #we don't need to handle routes, they are automatically removed when address
-    #is flushed
-    if [ -n "$old_ip_address" ]; then
-        delete_multihomed_rules $old_rt_table
-    fi
-}
-
 handle_timeout()
 {
     #algorithm for timeout handling should be as follows:
@@ -162,7 +112,7 @@ handle_timeout()
     #move, since we control which table to use
 
     #todo: need to allocate/read table here
-    rt_table=100
+    rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
 
     #as always, we don't care about alias
     if [ -n "$alias_ip_address" ]; then
@@ -177,10 +127,6 @@ handle_timeout()
 
     # move adress route to correct table
     update_addr_route $rt_table
-
-    #delete + add multihomed rules, just to be sure
-    #todo: check that there is an old_rt_table
-    add_multihomed_rules $rt_table
 
     if [ -n "$new_interface_mtu" ]; then
         # set MTU
@@ -223,11 +169,6 @@ handle_timeout()
     else
         # flush all IPs from interface
         ip -4 addr flush dev ${interface}
-
-        #todo: check that there is an old_rt_table
-        #todo: get all tables for one interface?
-        delete_multihomed_rules $old_rt_table
-
         exit_with_hooks 2
     fi
 
@@ -235,18 +176,14 @@ handle_timeout()
 }
 
 case "$reason" in
-    MEDIUM|ARPCHECK|ARPSEND|PREINIT|PREINIT6|BOUND6|RENEW6|REBIND6|DEPREF6|\
-        EXPIRE6|RELEASE6|STOP6)
-        return;
-        ;;
     BOUND|RENEW|REBIND|REBOOT)
         handle_bound_renew_rebind_reboot
         ;;
-    EXPIRE|FAIL|RELEASE|STOP)
-        handle_expire_fail_release_stop
-        ;;
     TIMEOUT)
         handle_timeout
+        ;;
+    *)
+        return;
         ;;
 esac
 

@@ -80,6 +80,11 @@ void table_allocator_client_netlink_update_rules(struct tac_ctx *ctx,
 {
     int32_t retval = 0;
 
+    //potential race between timer and lease expired
+    if (msg_type == RTM_NEWRULE && ctx->address->rules_added) {
+        return;
+    }
+
     retval = table_allocator_client_netlink_modify_rule(ctx, msg_type,
             NLM_F_CREATE | NLM_F_EXCL, 32, FRA_SRC, ADDR_RULE_PRIO, NULL);
 

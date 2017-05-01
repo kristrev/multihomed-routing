@@ -131,7 +131,9 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     }
 
     //add rules
-    table_allocator_client_netlink_update_rules(ctx, RTM_NEWRULE);
+    if (!ctx->address->rules_added) {
+        table_allocator_client_netlink_update_rules(ctx, RTM_NEWRULE);
+    }
 
     ctx->daemonized = 1;
     //start request timeout again
