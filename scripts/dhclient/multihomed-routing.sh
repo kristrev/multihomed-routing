@@ -21,8 +21,6 @@ update_addr_route()
 
 handle_bound_renew_rebind_reboot()
 {
-    rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
-
     set_hostname
 
     #we ignore alias for now
@@ -46,6 +44,7 @@ handle_bound_renew_rebind_reboot()
             ${new_broadcast_address:+broadcast $new_broadcast_address} \
             dev ${interface} label ${interface}
 
+        rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
         #remove default address route and add it to the correct table
         update_addr_route $rt_table
 
