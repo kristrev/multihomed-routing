@@ -3,7 +3,8 @@ WantedBy=network.target
 
 [Unit]
 Description=Table Allocator Server
-Before=network.target
+Before=network-pre.target
+Wants=network-pre.target
 
 [Service]
 ExecStart=/usr/sbin/table_allocator_server -c /etc/table_allocator_server_config.json
