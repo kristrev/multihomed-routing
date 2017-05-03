@@ -10,13 +10,15 @@ LO_RULE_PREF=91000
 update_addr_route()
 {
     rt_table=$1
+    if_metric=$2
 
     ip -4 ro delete \
         ${new_network_number}${new_subnet_mask:+/$new_subnet_mask} \
         dev ${interface}
     ip -4 ro add \
         ${new_network_number}${new_subnet_mask:+/$new_subnet_mask} \
-        dev ${interface} src ${new_ip_address} table ${rt_table}
+        dev ${interface} src ${new_ip_address} ${if_metric:+metric $if_metric} \
+        table ${rt_table}
 }
 
 handle_bound_renew_rebind_reboot()
@@ -45,8 +47,18 @@ handle_bound_renew_rebind_reboot()
             dev ${interface} label ${interface}
 
         rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
+
+        #Use default table and if_idx as metric if table_allocator_client can't
+        #get a lease. This is not ideal, but will ensure that the device has
+        #working routing
+        if [ "$rt_table" -eq 0 ];
+        then
+            rt_table=254;
+            if_idx=$(/sbin/ip link show dev "$interface" | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+        fi
+
         #remove default address route and add it to the correct table
-        update_addr_route $rt_table
+        update_addr_route $rt_table $if_idx
 
         if [ -n "$new_interface_mtu" ]; then
             # set MTU
@@ -68,6 +80,12 @@ handle_bound_renew_rebind_reboot()
 			    ip -4 ro add ${router} dev $interface src ${new_ip_address} \
                     table ${rt_rable} >/dev/null 2>&1
 			fi
+
+            #do not override default IF_METRIC
+            if [ "$rt_table" -eq 254 -a -z "$IF_METRIC"];
+            then
+                if_metric="$if_idx"
+            fi
 
 			# set default route
             ip -4 ro add default via ${router} dev ${interface} \
@@ -112,6 +130,11 @@ handle_timeout()
 
     #todo: need to allocate/read table here
     rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$new_ip_address" -n "$new_subnet_mask" -i "$interface" -d tas_socket)
+    if [ "$rt_table" -eq 0 ];
+    then
+        rt_table=254;
+        if_idx=$(/sbin/ip link show dev eth0 | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+    fi
 
     #as always, we don't care about alias
     if [ -n "$alias_ip_address" ]; then
@@ -125,7 +148,7 @@ handle_timeout()
         dev ${interface} label ${interface}
 
     # move adress route to correct table
-    update_addr_route $rt_table
+    update_addr_route $rt_table $if_idx
 
     if [ -n "$new_interface_mtu" ]; then
         # set MTU
@@ -153,13 +176,18 @@ handle_timeout()
 
             # set default route
             for router in $new_routers; do
-            ip -4 ro add default via ${router} dev ${interface} \
-                ${if_metric:+metric $if_metric} src ${new_ip_address} \
-                table ${rt_table} >/dev/null 2>&1
+                if [ "$rt_table" -eq 254 -a -z "$IF_METRIC"];
+                then
+                    if_metric="$if_idx"
+                fi
 
-            if [ -n "$if_metric" ]; then
-                if_metric=$((if_metric+1))
-            fi
+                ip -4 ro add default via ${router} dev ${interface} \
+                    ${if_metric:+metric $if_metric} src ${new_ip_address} \
+                    table ${rt_table} >/dev/null 2>&1
+
+                if [ -n "$if_metric" ]; then
+                    if_metric=$((if_metric+1))
+                fi
             done
         fi
 

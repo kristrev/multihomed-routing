@@ -13,6 +13,12 @@ fi
 #get route
 rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$IF_ADDRESS" -n "$IF_NETMASK" -i "$IFACE" -d tas_socket)
 
+if [ "$rt_table" -eq 0 ];
+then
+    rt_table=254;
+    if_metric=$(/sbin/ip link show dev "$interface" | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+fi
+
 #This is not the nicest way in the world to extract network number, look into
 #bash bitwise operators when time
 network_number=$(ipcalc "$IF_ADDRESS"/"$IF_NETMASK" | grep "^Network" | tr -d " " |
@@ -23,11 +29,11 @@ cut -d ":" -f 2 | cut -d "/" -f 1)
 #move the address route created by default
 ip -4 ro delete ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE}
 ip -4 ro add ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE} \
-    src ${IF_ADDRESS} table ${rt_table}
+    src ${IF_ADDRESS} table ${rt_table} ${if_metric:+metric $if_metric}
 
 #move default route to table
 ip -4 ro delete default via ${IF_GATEWAY} dev ${IFACE}
 ip -4 ro add default via ${IF_GATEWAY} dev ${IFACE} src ${IF_ADDRESS} \
-    table ${rt_table}
+    table ${rt_table} ${if_metric:+metric $if_metric}
 
 exit 0
