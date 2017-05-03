@@ -6,10 +6,34 @@
 ADDR_RULE_PREF=10000
 NW_RULE_PREF=20000
 LO_RULE_PREF=91000
+DNSMASQ_SERVER_PATH="/tmp/dnsmasq-servers.conf"
 
 make_resolv_conf()
 {
-    echo "Evil resolv.conf override"
+    if [ -z "$new_domain_name_servers" ]; then
+        return;
+    fi
+
+    for nameserver in $new_domain_name_servers; do
+        server_str="server=$nameserver@$new_ip_address@$interface"
+
+        grep "$server_str" "$DNSMASQ_SERVER_PATH"
+
+        if [ $? -ne 0 ]; then
+            echo "$server_str" >> "$DNSMASQ_SERVER_PATH"
+        fi
+    done
+
+    kill -s HUP $(pgrep dnsmasq)
+}
+
+delete_from_resolv_conf()
+{
+    match="$old_ip_address@$interface"
+
+    sed -i "/$match/d" "$DNSMASQ_SERVER_PATH"
+
+    kill -s HUP $(pgrep dnsmasq)
 }
 
 update_addr_route()
@@ -213,6 +237,9 @@ case "$reason" in
         ;;
     TIMEOUT)
         handle_timeout
+        ;;
+    EXPIRE|FAIL|RELEASE|STOP)
+        delete_from_resolv_conf
         ;;
     *)
         return;
