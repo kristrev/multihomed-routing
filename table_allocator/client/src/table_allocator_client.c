@@ -64,6 +64,25 @@ static void unix_socket_alloc_cb(uv_handle_t* handle, size_t suggested_size,
     buf->len = TA_SHARED_MAX_JSON_LEN;
 }
 
+//check fail count, return 1 if we are below limit and 0 if we are over
+static uint8_t table_allocator_client_check_fail_count(struct tac_ctx *ctx)
+{
+    struct tac_address *address = ctx->address;
+
+    ctx->num_failed++;
+    
+    if (ctx->num_failed < NUM_FAILED_LIMIT) {
+        return 1;
+    }
+
+    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Failed to receive table lease\n");
+    printf("%u\n", address->rt_table);
+    fflush(stdout);
+    uv_stop(&(ctx->event_loop));
+    ctx->closing = 1;
+    return 0;
+}
+
 static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         const uv_buf_t* buf, const struct sockaddr* addr, unsigned flags)
 {
@@ -72,7 +91,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     uint8_t ver, cmd;
     const struct sockaddr_un *un_addr = (const struct sockaddr_un*) addr;
     struct timespec tv_now;
-    uint32_t tdiff;
+    uint32_t tdiff, rt_table = 0;
 
     //rearm send timer
     //todo: look at error handling here, if I have missed something
@@ -87,33 +106,44 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
     } else if (nread < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Client socket failed, error: %s\n",
                 uv_strerror(nread));
-        unix_socket_stop_recv(ctx);
+
+        if (!address->rt_table && table_allocator_client_check_fail_count(ctx))
+        {
+            unix_socket_stop_recv(ctx); 
+        } 
         return;
     }
 
     //parse json
     if (!tables_allocator_shared_json_parse_client_reply(buf->base,
-                &ver, &cmd, &(address->rt_table), &(address->lease_expires))) {
+                &ver, &cmd, &rt_table, &(address->lease_expires))) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Failed to parse request from: %s\n",
                 un_addr->sun_path + 1);
         return;
     }
 
+    if (ver != TA_VERSION) {
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Received unsupported version: %u\n",
+                ver);
+        uv_stop(&(ctx->event_loop));
+        return;
+    }
 
     //check cmd and version
-    if (cmd != TA_SHARED_CMD_RESP || ver != TA_VERSION ||
-            !(address->rt_table)) {
+    if (cmd != TA_SHARED_CMD_RESP || !rt_table) {
         uv_timer_start(&(ctx->request_timeout_handle),
                 client_request_timeout_handle_cb, REQUEST_RETRANSMISSION_MS, 0);
         return;
     }
 
+    address->rt_table = rt_table;
+    ctx->num_failed = 0;
     TA_PRINT_SYSLOG(ctx, LOG_INFO, "Server: %s Table: %u Lease: %u Ifname: %s "
                 "Address: %s Family: %u Table: %u\n",
                 un_addr->sun_path + 1, address->rt_table,
-                address->lease_expires, ctx->address->ifname,
-                ctx->address->address_str, ctx->address->addr_family,
-                ctx->address->rt_table);
+                address->lease_expires, address->ifname,
+                address->address_str, address->addr_family,
+                address->rt_table);
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &tv_now);
     //todo: guard this better
@@ -194,7 +224,13 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     json_object_put(req_obj);
 
     if (retval < 0) {
-        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Sending error: %s\n", uv_strerror(retval));
+        TA_PRINT_SYSLOG(ctx, LOG_ERR, "Sending error: %s\n",
+                uv_strerror(retval));
+
+        if (!ctx->address->rt_table && 
+            !table_allocator_client_check_fail_count(ctx)) {
+            return;
+        }
     } else {
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 

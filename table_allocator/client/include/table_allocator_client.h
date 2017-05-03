@@ -9,6 +9,7 @@
 #include <table_allocator_shared_json.h>
 
 #define REQUEST_RETRANSMISSION_MS   2000
+#define NUM_FAILED_LIMIT            5
 
 struct mnl_socket;
 
@@ -50,6 +51,7 @@ struct tac_ctx {
     uint8_t daemonize;
     uint8_t daemonized;
     uint8_t closing;
+    uint8_t num_failed;
 };
 
 #endif
