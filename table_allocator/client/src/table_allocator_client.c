@@ -39,9 +39,11 @@ static void unix_socket_handle_close_cb(uv_handle_t *handle)
     }
 
     //todo: error checks
+    //space requests a little bit out in time to prevent basically busy loop if
+    //something should happen to socket
     uv_udp_init(&(ctx->event_loop), &(ctx->unix_socket_handle));
     uv_timer_start(&(ctx->unix_socket_timeout_handle), unix_socket_timeout_cb,
-            0, 0);
+            100, 0);
 }
 
 static void unix_socket_stop_recv(struct tac_ctx *ctx)
@@ -95,9 +97,8 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 
     //rearm send timer
     //todo: look at error handling here, if I have missed something
-    if (ctx->closing) {
-        return;
-    } else if (nread == 0) {
+
+    if (ctx->closing || nread == 0) {
         return;
     } else if (flags & UV_UDP_PARTIAL) {
         uv_timer_start(&(ctx->request_timeout_handle),
@@ -107,7 +108,7 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
         TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "Client socket failed, error: %s\n",
                 uv_strerror(nread));
 
-        if (!address->rt_table && table_allocator_client_check_fail_count(ctx))
+        if (address->rt_table || table_allocator_client_check_fail_count(ctx))
         {
             unix_socket_stop_recv(ctx); 
         } 
@@ -174,7 +175,12 @@ static void unix_socket_recv_cb(uv_udp_t* handle, ssize_t nread,
 static void client_request_timeout_handle_cb(uv_timer_t *handle)
 {
     struct tac_ctx *ctx = handle->data;
-    table_allocator_client_send_request(ctx);
+
+    //This is where I will increase counter!!!!!
+    if (ctx->address->rt_table ||
+        table_allocator_client_check_fail_count(ctx)) {
+        table_allocator_client_send_request(ctx);
+    }
 }
 
 static void table_allocator_client_send_request(struct tac_ctx *ctx)
@@ -226,11 +232,6 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     if (retval < 0) {
         TA_PRINT_SYSLOG(ctx, LOG_ERR, "Sending error: %s\n",
                 uv_strerror(retval));
-
-        if (!ctx->address->rt_table && 
-            !table_allocator_client_check_fail_count(ctx)) {
-            return;
-        }
     } else {
         TA_PRINT(ctx->logfile, "Sent %d bytes\n", retval);
 
