@@ -7,6 +7,11 @@ ADDR_RULE_PREF=10000
 NW_RULE_PREF=20000
 LO_RULE_PREF=91000
 
+make_resolv_conf()
+{
+    echo "Evil resolv.conf override"
+}
+
 update_addr_route()
 {
     rt_table=$1
