@@ -25,7 +25,7 @@ struct json_object *table_allocator_shared_json_create_req(const char *address,
     }
     json_object_object_add(json_obj, TA_SHARED_JSON_IFNAME_KEY, obj_add);
 
-    if (tag) {
+    if (tag[0]) {
         if (!(obj_add = json_object_new_string(tag))) {
             json_object_put(json_obj);
             return NULL;

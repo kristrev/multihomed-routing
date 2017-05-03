@@ -211,8 +211,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
 
     json_str = json_object_to_json_string_ext(req_obj, JSON_C_TO_STRING_PLAIN);
 
-    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "JSON request: %s %zd\n",
-            json_str, strlen(json_str));
+    TA_PRINT_SYSLOG(ctx, LOG_DEBUG, "JSON request: %s\n", json_str);
 
     //populate address
     memset(&remote_addr, 0, sizeof(remote_addr));
