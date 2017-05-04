@@ -3,8 +3,8 @@
 Linux supports multihoming out of the box. However, when a Linux&dash;device is
 connected to multiple networks simultaneously, the kernel will often be unable
 to make use of all the different networks due to overlapping routes (typically
-the default route). Configuring routing on multihomed hosts requires special
-care, and is in most cases not handled properly by default set of
+the default routes). Configuring routing on multihomed hosts requires special
+care, and is in most cases not handled properly by the default set of
 networking/routing tools installed on a host. In this document, I will present
 a solution that can be used to automatically configure routing correctly on
 multihomed Linux hosts. The solution integrates with existing tools like
@@ -22,8 +22,8 @@ configuration.
 something else).
 
 * If you use ifupdown or NetworkManager, install either if-up-script of
-dhclient-hook. If you use another tool for configuring the interface, write a
-script modeled after one of the existing scripts (contributions are welcome).
+dhclient-hook. If you use another tool for configuring the interfaces, you need to write a
+script (contributions are welcome!). You can probably use the existing scripts as inspiration.
 
 * If you use ifupdown, create stanzas for your interfaces.
 
@@ -36,13 +36,13 @@ resolving.
 
 The work presented here was supported by the EU-funded research-project
 [MONROE](https://www.monroe-project.eu/), which is building a testbed
-consisting of multihomed hosts connected to different mobile broadband
+consisting of multihomed test nodes connected to different mobile broadband
 provides, WAN and WIFI. Up until now, a tool called
 [multi](https://github.com/kristrev/multi) has been used to configure routing
 on the hosts. While multi has done its job well and been an invaluable tool in
 getting MONROE up and running, it is starting to show its age and some of the
 choices I made when I wrote the tool is starting to be a pain to deal with. The
-tool was written by me during mt PhD-work and since I was young(-ish), naive
+tool was written by me during my PhD-work and since I was young(-ish), naive
 and over-ambitious, multi became a hybrid between a network manager and routing
 daemon. This resulted in stuff like implementing a small DHCP client inside the
 tool. 
@@ -53,8 +53,7 @@ trying to duplicate functionality available elsewhere, the new multihomed
 routing solution builds on as many existing components as possible. Interfaces
 will be configured by updating for example /etc/network/interfaces, and instead
 of using multi for DHCP, etc., we will instead create routing configuration
-scripts that will be run when a lease is acquired or interface goes down
-(supported by all DHCP clients I have found).
+scripts that will be run when a lease is acquired or interface goes down.
 
 ## Routing overview
 
@@ -78,16 +77,13 @@ With our solution, three rules are created per interface (address):
 * The first rule (with priority 10000) is for traffic bound to a specific
 address/interfaces (a bound socket for example). Each route contains both
 interface and source address, so that routing will work even when there are
-multiple interfaces with the same address present. The rules are on the format:
-from X/Y lookup 100. The reason for including the netmask is so that routing
+multiple interfaces with the same address present. The rules are on the format `from X/Y lookup 100`. The reason for including the netmask is so that routing
 traffic through the node will work out of the box.
-
 
 * The second rule (with priority 20000) is for traffic destined to a network.
 These rules are required for routing traffic to the different networks
 correctly, for example required when communicating with some other equipment
 like a DNS server or router.
-
 
 * The third rule (with priority 91000) is the match all rule, which is used to
 route unbound traffic. The order of the 91000-rules depend on the order in
@@ -143,7 +139,7 @@ Where to keep the additional configuration files and how and when to
 create/remove them depends on the user-case and system configuration. In
 MONROE, we store the configuration files in /var/run/network-conf and these
 files are generated/removed when interfaces are connect/disconnect. We assume
-that all dynamic interfaces will be configured using DHCP, so all files are on
+that all dynamic interfaces will be configured using DHCP, so all files have
 the following format:
 
 `iface <ifname> inet dhcp`
@@ -205,18 +201,17 @@ been set as up. Technically it will run for every interface that is set as up,
 but guards are in place so that unless the script is called with a static
 address or from NetworkManager (more about that later) it will exit immediately.
 
-When the script is run, address, etc. is already assigned to the interface and
+When the script is run, addresses, etc. is already assigned to the interface and
 routes are configured. Thus, we need to request a table from the Table
 Allocator and move the already added routes to the correct table. This is done
-in four commands, two `ip -4 ro del` and two `ip -4 ro add`. The Table
+in four commands, two `ip -4 ro del` and two `ip -4 ro add`. Since the Table
 Allocator Client is responsible for managing the rules and routes are deleted
-automatically when an interface is removed/we run ifdown, so no
+automatically when an interface is removed/we run ifdown, no
 if-down.d-script is needed.
 
 #### DHCP
 
-Our script for use when DHCP (using dhclient) is used to configure an interface
-is implemented as a dhclient enter hook. The script can be found
+Our script for use when DHCP (using dhclient) is used is implemented as a dhclient enter hook. The script can be found
 [here](https://github.com/kristrev/multihomed-routing/blob/master/scripts/dhclient/multihomed-routing.sh)
 and must be installed to /etc/dhcp/dhclient-enter-hooks.d/multihomed-routing
 (note the .sh has to be removed). We handle the *BOUND*, *RENEW*, *REBIND*,
@@ -253,7 +248,7 @@ expects.
 
 Fortunately, [dnsmasq](http://www.thekelleys.org.uk/dnsmasq/doc.html) supports
 specifying which interface and address to be used to communicate with a server.
-If you want to set up DNS to work correctly on a multihomed host, you can do
+If you want to set up DNS to work correctly, you can do
 the following:
 
 * Install dnsmasq and configure it to be the default resolver. The steps for
@@ -272,7 +267,7 @@ file. Update the desired path to this file in the configuration file you just
 copied (*servers-file*).
 
 * So far, we only write servers that we acquire when dhclient is used. If you
-change the path of the servers file, update the dhclient
+change the path of the servers file, update the dhclient-hook
 (*DNSMASQ_SERVER_PATH*-variable).
 
 When an interface comes up or goes down, the servers-file is update. We also
@@ -283,7 +278,7 @@ available DNS servers.
 
 ### ifupdown and hotplug
 
-ifupdown does not deal very well with hotplugging. ifup is easy, you would for
+ifupdown does not deal very well with hotplugging. ifup is easy to solve, you for
 example have a tool which listens for USB connect events and does ifup or a
 udev rule. ifdown, on the other hand, is harder. If you try to do ifdown on a
 non-existent interface, you will just be told that ifdown will ignore the
