@@ -1,39 +1,100 @@
-#!/bin/sh
+#!/bin/bash
 
-ADDR_RULE_PREF=10000
-NW_RULE_PREF=20000
-LO_RULE_PREF=91000
+handle_nm_ifup()
+{
+    echo "$(env)" >> /tmp/nm-env.log
+    echo "\n" >> /tmp/nm-env.log
+    for ((i=0; i < IP4_NUM_ADDRESSES; i++))
+    do
+        varname="IP4_ADDRESS_$i"
+        addr_str=$(echo ${!varname} | cut -d " " -f 1)
+        network_address=$(echo "$addr_str" | cut -d "/" -f 1)
 
-#this script only applies to static configurations
-if [ "$METHOD" != "static" -o -z "$IF_GATEWAY" ];
+        if [ -n "$DHCP4_SUBNET_MASK" ];
+        then
+            network_number=$DHCP4_NETWORK_NUMBER
+            netmask=$DHCP4_SUBNET_MASK;
+        else
+            netmask=$(ipcalc $addr_str | grep Netmask | tr -d " " | cut -d ":" -f 2 | cut -d "=" -f 1)
+            network_number=$(ipcalc "$addr_str" | grep "^Network" | tr -d " " | cut -d ":" -f 2 | cut -d "/" -f 1)
+        fi
+
+        #get route
+        rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$network_address" -n "$netmask" -i "$IFACE" -d tas_socket)
+
+        if [ "$rt_table" -eq 0 ];
+        then
+            rt_table=254;
+            if_metric=$(/sbin/ip link show dev "$IFACE" | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+        fi
+
+        #move the address route created by default
+        #ip -4 ro delete ${network_number}${netmask:+/$netmask} dev ${IFACE}
+        ip -4 ro add ${network_number}${netmask:+/$netmask} dev ${IFACE} \
+            src ${network_address} table ${rt_table} ${if_metric:+metric $if_metric}
+
+        #move default route to table
+        #ip -4 ro delete default via ${IP4_GATEWAY} dev ${IFACE}
+        ip -4 ro add default via ${IP4_GATEWAY} dev ${IFACE} src ${network_address} \
+            table ${rt_table} ${if_metric:+metric $if_metric}
+
+        #move other provided routes
+        for ((j=0; j < IP4_NUM_ROUTES; j++))
+        do
+            varname="IP4_ROUTE_$i"
+            route_address=$(echo ${!varname} | cut -d " " -f 1)
+            route_next_hop=$(echo ${!varname} | cut -d " " -f 2)
+            route_metric=$(echo ${!varname} | cut -d " " -f 3)
+
+            #ip -4 ro delete ${route_address} via ${route_next_hop} dev ${IFACE} \
+            #    ${route_metric:+metric $route_metric}
+            ip -4 ro add ${route_address} via ${route_next_hop} dev ${IFACE} \
+                ${route_metric:+metric $route_metric} table ${rt_table} \
+                src ${network_address}
+        done
+    done
+}
+
+handle_ifup()
+{
+    #get route
+    rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$IF_ADDRESS" -n "$IF_NETMASK" -i "$IFACE" -d tas_socket)
+
+    if [ "$rt_table" -eq 0 ];
+    then
+        rt_table=254;
+        if_metric=$(/sbin/ip link show dev "$IFACE" | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+    fi
+
+    #This is not the nicest way in the world to extract network number, look into
+    #bash bitwise operators when time
+    network_number=$(ipcalc "$IF_ADDRESS"/"$IF_NETMASK" | grep "^Network" | tr -d " " |
+    cut -d ":" -f 2 | cut -d "/" -f 1)
+
+    #we are run from up, static configuration is already applied
+
+    #move the address route created by default
+    ip -4 ro delete ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE}
+    ip -4 ro add ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE} \
+        src ${IF_ADDRESS} table ${rt_table} ${if_metric:+metric $if_metric}
+
+    #move default route to table
+    ip -4 ro delete default via ${IF_GATEWAY} dev ${IFACE}
+    ip -4 ro add default via ${IF_GATEWAY} dev ${IFACE} src ${IF_ADDRESS} \
+        table ${rt_table} ${if_metric:+metric $if_metric}
+}
+
+if [ "$ADDRFAM" != "inet" ];
 then
-    exit 0
+    exit 0;
 fi
 
-#get route
-rt_table=$(/usr/sbin/table_allocator_client -4 -s -a "$IF_ADDRESS" -n "$IF_NETMASK" -i "$IFACE" -d tas_socket)
-
-if [ "$rt_table" -eq 0 ];
+if [ "$METHOD" = "NetworkManager" -a "$IP4_GATEWAY" ];
 then
-    rt_table=254;
-    if_metric=$(/sbin/ip link show dev "$interface" | head -1 | cut -d " " -f 1 | cut -d ":" -f 1)
+    handle_nm_ifup
+elif [ "$METHOD" = "static" -a -n "$IF_GATEWAY" ];
+then
+    handle_ifup
 fi
-
-#This is not the nicest way in the world to extract network number, look into
-#bash bitwise operators when time
-network_number=$(ipcalc "$IF_ADDRESS"/"$IF_NETMASK" | grep "^Network" | tr -d " " |
-cut -d ":" -f 2 | cut -d "/" -f 1)
-
-#we are run from up, static configuration is already applied
-
-#move the address route created by default
-ip -4 ro delete ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE}
-ip -4 ro add ${network_number}${IF_NETMASK:+/$IF_NETMASK} dev ${IFACE} \
-    src ${IF_ADDRESS} table ${rt_table} ${if_metric:+metric $if_metric}
-
-#move default route to table
-ip -4 ro delete default via ${IF_GATEWAY} dev ${IFACE}
-ip -4 ro add default via ${IF_GATEWAY} dev ${IFACE} src ${IF_ADDRESS} \
-    table ${rt_table} ${if_metric:+metric $if_metric}
 
 exit 0
