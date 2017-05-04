@@ -1,4 +1,4 @@
-#Configuring routing on multihomed Linux-hosts
+# Configuring routing on multihomed Linux-hosts
 
 Linux supports multihoming out of the box. However, when a Linux&dash;device is
 connected to multiple networks simultaneously, the kernel will often be unable
@@ -13,7 +13,7 @@ of your choice to configure the interface.
 
 The main git-repository for the solution can be found [here](https://github.com/kristrev/multihomed-routing).
 
-##TL;DR
+## TL;DR
 
 * Install the table allocator client and server, potentially update server
 configuration.
@@ -32,7 +32,7 @@ resolving.
 
 * Start the interface(s).
 
-##Motivation
+## Motivation
 
 The work presented here was supported by the EU-funded research-project
 [MONROE](https://www.monroe-project.eu/), which is building a testbed
@@ -56,7 +56,7 @@ of using multi for DHCP, etc., we will instead create routing configuration
 scripts that will be run when a lease is acquired or interface goes down
 (supported by all DHCP clients I have found).
 
-##Routing overview
+## Routing overview
 
 When configuring routing on multihomed hosts there are two approaches to choose
 from. One is to keep all routes in the same table and assign the routes
@@ -93,8 +93,7 @@ like a DNS server or router.
 route unbound traffic. The order of the 91000-rules depend on the order in
 which interfaces came up, so there is no guarantee that the current route for
 unbound traffic has internet connectivity. A separate tool which checks the
-connections and maintains an unbound traffic rule (with a higher priority than
-91000) is required if this guarantee is desirable.
+connections and maintains an unbound traffic rule (with a higher priority than 91000) is required if this guarantee is desirable.
 
 On my machine, the rules looks as follows:
 
@@ -120,7 +119,7 @@ default via 192.168.5.1 dev eth1 src 192.168.5.113
 192.168.5.0/24 dev eth1 scope link src 192.168.5.113 
 ```
 
-##Configuring interfaces
+## Configuring interfaces
 
 Interfaces can in most cases be configured using your tool of choice (for
 example ifupdown or through NetworkManager). If you already know how to
@@ -149,7 +148,7 @@ the following format:
 
 `iface <ifname> inet dhcp`
 
-##Table Allocator
+## Table Allocator
 
 Routing tables must be unique to each interface (address), and the role of the
 Table Allocator is to distribute these tables. The Allocator consists of a
@@ -185,7 +184,7 @@ working (albeit incorrect) routing configuration, and you should have a
 watchdog or something checking for default routes in the main table and take
 action (for example restart server).
 
-##Configuring routing
+## Configuring routing
 
 Routing is configured using shell-scripts that are run when an address is
 acquired/lost. Which script(s) to use depends on how you have chosen to
@@ -193,9 +192,9 @@ configure your network interfaces. We currently support ifupdown and
 NetworkManager and our scripts are limited to IPv4 so far, but IPv6 is coming
 very soon (contributions are always welcome).
 
-###ifupdown
+### ifupdown
 
-####Static address
+#### Static address
 
 In order to configure routing for interfaces with a static address, we have
 created an ifup-script (found
@@ -214,7 +213,7 @@ Allocator Client is responsible for managing the rules and routes are deleted
 automatically when an interface is removed/we run ifdown, so no
 if-down.d-script is needed.
 
-####DHCP
+#### DHCP
 
 Our script for use when DHCP (using dhclient) is used to configure an interface
 is implemented as a dhclient enter hook. The script can be found
@@ -227,7 +226,7 @@ static addresses (most of the complexity comes from handling the different DHCP
 states) and update our resolv-file (more about that later). In the last three
 states, we clean up the resolv-file.
 
-###NetworkManager
+### NetworkManager
 
 NetworkManager will, via. one of its dispatcher scripts
 (/etc/NetworkManager/dispatcher.d/01ifupdown on my Ubuntu-machine), run the
@@ -241,7 +240,7 @@ default routes (and other routes) added to the main routing table. We respect
 these metrics and do not delete any routes from the main routing table. The
 91000-rules mentioned has in other words no effect when NetworkManager is used.
 
-##DNS
+## DNS
 
 Using the default resolver and code for creating/updating resolv-conf, DNS
 requests will either be sent to one or all servers, and you have no control
@@ -280,9 +279,9 @@ When an interface comes up or goes down, the servers-file is update. We also
 signal dnsmasq (*SIGHUP*), which causes the application to reload the list of
 available DNS servers.
 
-##Misc.
+## Misc.
 
-###ifupdown and hotplug
+### ifupdown and hotplug
 
 ifupdown does not deal very well with hotplugging. ifup is easy, you would for
 example have a tool which listens for USB connect events and does ifup or a
@@ -295,7 +294,7 @@ dhclient for that interface and removes any entry from the dnsmasq
 servers-file. Script and rule can be found
 [here](https://github.com/kristrev/multihomed-routing/tree/master/udev).
 
-##Summary
+## Summary
 
 By following this document, installing the tools, scripts and configuring them
 when needed, you should have a system which will automatically configure
