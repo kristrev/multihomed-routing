@@ -11,7 +11,7 @@ multihomed Linux hosts. The solution integrates with existing tools like
 NetworkManager and ifupdown, so you will in most cases be able to use the tools
 of your choice to configure the interface.
 
-The main git-repository for the solution can be found [here](https://github.com/kristrev/multihomed-routing).
+Comments, questions and feedback are always welcome!
 
 ## TL;DR
 
