@@ -1,4 +1,4 @@
-# Automatic routing-configuration on multihomed Linux-hosts
+# Automatic routing configuration on multihomed Linux-hosts
 
 Linux supports multihoming out of the box. However, when a Linux&dash;device is
 connected to multiple networks simultaneously, the kernel will often be unable
