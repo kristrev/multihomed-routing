@@ -7,6 +7,7 @@
 #include <linux/fib_rules.h>
 
 #include <table_allocator_shared_log.h>
+#include <table_allocator_shared_json.h>
 
 #include "table_allocator_client_netlink.h"
 #include "table_allocator_client.h"
@@ -246,6 +247,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
     struct nlmsghdr *nl_hdr = (struct nlmsghdr*) buf->base;
     //this cast is to prevent getting compilation warnings on mnl_nlmsg_next
     int32_t numbytes = (int32_t) nread;
+    uint8_t should_delete = 0;
 
     if (ctx->closing) {
         return;
@@ -265,11 +267,7 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                         "(fam. %u if. %s addr, %s/%u)\n", address->addr_family,
                         address->ifname, address->address_str,
                         address->subnet_prefix_len);
-
-                //flush rules
-                table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
-                uv_stop(&(ctx->event_loop));
-                ctx->closing = 1;
+                should_delete = 1;
             }
         } else if (nl_hdr->nlmsg_type == RTM_DELADDR) {
             if (table_allocator_client_netlink_handle_deladdr(ctx, nl_hdr)) {
@@ -278,12 +276,17 @@ static void table_allocator_client_netlink_recv_cb(uv_udp_t* handle,
                         "(fam. %u if. %s addr, %s/%u)\n", address->addr_family,
                         address->ifname, address->address_str,
                         address->subnet_prefix_len);
-
-                //flush rules
-                table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
-                uv_stop(&(ctx->event_loop));
-                ctx->closing = 1;
+                should_delete = 1;
             }
+        }
+
+        if (should_delete) {
+            //flush rules + release lease (attempt to)
+            table_allocator_client_netlink_update_rules(ctx, RTM_DELRULE);
+            table_allocator_client_send_request(ctx, TA_SHARED_CMD_REL);
+            uv_stop(&(ctx->event_loop));
+            ctx->closing = 1;
+            break;
         }
 
         nl_hdr = mnl_nlmsg_next(nl_hdr, &numbytes);

@@ -54,4 +54,6 @@ struct tac_ctx {
     uint8_t num_failed;
 };
 
+void table_allocator_client_send_request(struct tac_ctx *ctx, uint8_t cmd);
+
 #endif

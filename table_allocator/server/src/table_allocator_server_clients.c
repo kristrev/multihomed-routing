@@ -214,7 +214,8 @@ uint8_t table_allocator_server_clients_handle_req(struct tas_ctx *ctx,
     //subtract 1 from table returned so that offset works correctly (ffs returns
     //1 as index for the first bit)
     rt_table_returned = ctx->table_offset + (rt_table_returned - 1);
-    TA_PRINT(ctx->logfile, "Allocated table %u\n", rt_table_returned);
+    TA_PRINT(ctx->logfile, "Allocated table %u for %s (%s)\n",
+            rt_table_returned, req->address, req->ifname);
 
     //insert into database
     if (!table_allocator_sqlite_insert_table(ctx, req, rt_table_returned,
@@ -240,6 +241,8 @@ uint8_t table_allocator_server_clients_handle_release(struct tas_ctx *ctx,
     }
 
     if (table_allocator_sqlite_remove_table(ctx, req)) {
+        TA_PRINT_SYSLOG(ctx, LOG_INFO, "Release table %u for %s (%s)\n",
+                rt_table, req->address, req->ifname);
         release_table(ctx, req->addr_family, rt_table);
         return 1;
     } else {

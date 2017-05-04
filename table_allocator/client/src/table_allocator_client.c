@@ -20,7 +20,6 @@
 #include <table_allocator_shared_libuv_helpers.h>
 #include <table_allocator_shared_socket_helpers.h>
 
-static void table_allocator_client_send_request(struct tac_ctx *ctx);
 static void unix_socket_timeout_cb(uv_timer_t *handle);
 static void client_request_timeout_handle_cb(uv_timer_t *handle);
 
@@ -176,14 +175,13 @@ static void client_request_timeout_handle_cb(uv_timer_t *handle)
 {
     struct tac_ctx *ctx = handle->data;
 
-    //This is where I will increase counter!!!!!
     if (ctx->address->rt_table ||
         table_allocator_client_check_fail_count(ctx)) {
-        table_allocator_client_send_request(ctx);
+        table_allocator_client_send_request(ctx, TA_SHARED_CMD_REQ);
     }
 }
 
-static void table_allocator_client_send_request(struct tac_ctx *ctx)
+void table_allocator_client_send_request(struct tac_ctx *ctx, uint8_t cmd)
 {
     struct tac_address *address = ctx->address;
 	struct sockaddr_un remote_addr;
@@ -193,7 +191,7 @@ static void table_allocator_client_send_request(struct tac_ctx *ctx)
     const char *json_str;
     
     req_obj = table_allocator_shared_json_create_req(address->address_str,
-            address->ifname, address->tag, address->addr_family, ctx->cmd);
+            address->ifname, address->tag, address->addr_family, cmd);
 
     if (!req_obj) {
         if (uv_timer_start(&(ctx->request_timeout_handle),
@@ -290,7 +288,7 @@ static void unix_socket_timeout_cb(uv_timer_t *handle)
 
     if (success) {
 	    uv_timer_stop(handle);
-        table_allocator_client_send_request(ctx);
+        table_allocator_client_send_request(ctx, TA_SHARED_CMD_REQ);
     } else {
         if (!uv_timer_get_repeat(handle)) {
 		    uv_timer_set_repeat(handle, DOMAIN_SOCKET_TIMEOUT_MS);
