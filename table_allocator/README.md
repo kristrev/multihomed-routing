@@ -39,14 +39,14 @@ sqlite3 database for persistent storage, and a bitmap for quick lookups when
 allocating/releasing tables. The server can be run as a normal user and supports
 the following command line arguments:
 
-* -c : path to configuration file, required.
+* -c: path to configuration file, required.
 
 The configuration file must contain one JSON object with the following keys:
 
-* socket\_path : string, name of socket (required).
-* table\_offset : int, value of first table (required).
-* num\_tables : int, number of tables to allocate (required).
-* table\_timeout : int, validity of lease (seconds, required).
+* socket\_path: string, name of socket (required).
+* table\_offset: int, value of first table (required).
+* num\_tables: int, number of tables to allocate (required).
+* table\_timeout: int, validity of lease (seconds, required).
 * db\_path: string, path to leases database (required).
 * do\_syslog: bool, write to syslog (optional, default false).
 * log\_path": string, path to logfile (optional, default stderr)
@@ -59,8 +59,9 @@ See files/server\_config.json for a configuration example.
 ## Client
 
 The client requests and maintains a lease, as well as the routing rules (v4,
-soon v6). The client must be run as root (or a user with permissions to update
-routing). We support the following command line arguments:
+soon v6). The client must be run as root in order to work correctly (or a user
+with permissions to update routing). We support the following command line
+arguments:
 
 * -4: set address family to IPv4 (default is UNSPEC).
 * -6: set address family to IPv6.
@@ -91,9 +92,9 @@ Follow the same steps as above, but make the build directory in the root folder
 (i.e., .../table\_allocator).  The client requires libuv, libmnl and json-c,
 while the server requires libuv, libsqlite3 and json-c.
 
-The easiest way to install the applications, is to build deb-packages as
-described above. If anyone wants to build support for other packet formats, then
-that would be great. For examples of how to use the client, you can look at the
+The easiest way to install the applications, is to build and use the
+deb-packages. If anyone wants to add support for other packet formats, then that
+would be great. For examples of how to use the client, you can look at the
 scripts located
 [here](https://github.com/kristrev/multihomed-routing/tree/master/scripts).
 
